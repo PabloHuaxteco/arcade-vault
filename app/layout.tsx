@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Press_Start_2P, JetBrains_Mono, Courier_Prime } from "next/font/google";
 import "./globals.css";
+import { Nav } from "./_components/nav";
+import { SessionProvider } from "./_components/session-provider";
+import { SiteFooter } from "./_components/site-footer";
 
 // Retro display face used for headings, nav, buttons and HUD text.
 const pressStart2P = Press_Start_2P({
@@ -39,7 +42,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <div className="av-bg" aria-hidden="true" />
         <div className="av-noise" aria-hidden="true" />
-        <div className="av-root">{children}</div>
+        <SessionProvider>
+          <div className="av-root">
+            <Nav />
+            <main className="av-main">{children}</main>
+            <SiteFooter />
+          </div>
+        </SessionProvider>
       </body>
     </html>
   );
