@@ -13,9 +13,12 @@ export function Nav() {
   const { user, signOut } = useSession();
   const [open, setOpen] = useState(false);
 
-  // Equivalente a isActive() del template: la Biblioteca queda activa también en
-  // el detalle y el reproductor, que cuelgan de /juego.
-  const libraryActive = pathname === "/" || pathname.startsWith("/juego");
+  // Equivalente a isActive() del template. "Inicio" solo se activa en la raíz;
+  // la Biblioteca queda activa también en el detalle y el reproductor, que
+  // cuelgan de /juego.
+  const inicioActive = pathname === "/";
+  const libraryActive =
+    pathname.startsWith("/biblioteca") || pathname.startsWith("/juego");
   const salonActive = pathname.startsWith("/salon");
   const authActive = pathname.startsWith("/entrar");
 
@@ -31,7 +34,10 @@ export function Nav() {
           </div>
         </Link>
         <div className="links">
-          <Link className={libraryActive ? "active" : ""} href="/" onClick={close}>
+          <Link className={inicioActive ? "active" : ""} href="/" onClick={close}>
+            Inicio
+          </Link>
+          <Link className={libraryActive ? "active" : ""} href="/biblioteca" onClick={close}>
             Biblioteca
           </Link>
           <Link className={salonActive ? "active" : ""} href="/salon" onClick={close}>
@@ -65,7 +71,10 @@ export function Nav() {
         <div className="pixel neon-cyan" style={{ fontSize: 11, marginBottom: 16 }}>
           MENÚ
         </div>
-        <Link className={libraryActive ? "active" : ""} href="/" onClick={close}>
+        <Link className={inicioActive ? "active" : ""} href="/" onClick={close}>
+          Inicio
+        </Link>
+        <Link className={libraryActive ? "active" : ""} href="/biblioteca" onClick={close}>
           Biblioteca
         </Link>
         <Link className={salonActive ? "active" : ""} href="/salon" onClick={close}>
