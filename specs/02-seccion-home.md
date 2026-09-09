@@ -1,6 +1,6 @@
 # SPEC 02 — Sección Home como punto de entrada
 
-> **Estado:** Aprobada
+> **Estado:** Implementado
 > **Depende de:** SPEC 01
 > **Fecha:** 2026-09-09
 > **Objetivo:** Portar `references/templates/home-about/home.jsx` a la ruta raíz `/` como nueva landing de Arcade Vault y mover la Biblioteca de `/` a `/biblioteca`.
