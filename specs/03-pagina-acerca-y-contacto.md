@@ -75,7 +75,7 @@ Variables de entorno (en `.env.local`, no versionado; plantilla en `.env.example
 
 ```
 RESEND_API_KEY   # API key generada en el panel de Resend
-CONTACT_TO       # adrian.crea31@gmail.com
+CONTACT_TO       # Email to contact
 ```
 
 Convenciones:
