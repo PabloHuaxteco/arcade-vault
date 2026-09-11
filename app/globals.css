@@ -1226,6 +1226,34 @@ a {
   image-rendering: pixelated;
 }
 
+/* real in-screen game (SPEC 07 — motor de caída/tetris) */
+/* El marco reutiliza .crt-screen (4 / 3, igual que asteroides); el canvas
+   mantiene su proporción real de tablero (1 / 2) centrado dentro, en vez de
+   estirarse a 4:3 (distorsión) o forzar el marco a 1:2 (demasiado alto). */
+.game-canvas-tetris {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1 / 2;
+  background: #000;
+  image-rendering: pixelated;
+}
+.next-canvas {
+  display: block;
+  width: 120px;
+  height: 120px;
+  background: #000;
+  border-radius: 12px / 28px;
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.9),
+    inset 0 0 20px rgba(0, 245, 255, 0.15);
+  image-rendering: pixelated;
+}
+
 /* game over modal */
 .modal-bd {
   position: fixed;
