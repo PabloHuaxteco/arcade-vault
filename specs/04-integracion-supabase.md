@@ -1,6 +1,6 @@
 # SPEC 04 — Integración base de Supabase
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** Ninguna
 > **Fecha:** 2026-09-10
 > **Objetivo:** Añadir la conexión base con Supabase a la app Next.js —clientes de navegador y de servidor con `@supabase/ssr`, variables de entorno y una ruta temporal de verificación— sin autenticación real ni tablas.
