@@ -1,6 +1,11 @@
-// ===== lib/scores.ts — puntuaciones reales desde Supabase (tabla "scores") =====
+// ===== lib/scores.ts — lecturas de puntuaciones desde Supabase (servidor) =====
+//
+// insertScore vive en lib/scores-client.ts, no aquí: este módulo importa
+// lib/supabase/server.ts (usa next/headers), que Next.js no puede empaquetar
+// si un componente cliente (asteroids-game.tsx) llega a importar algo de
+// este archivo. Mantener las lecturas de servidor y la escritura de
+// navegador en archivos separados evita ese conflicto de bundling.
 
-import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export interface ScoreRow {
@@ -70,19 +75,4 @@ export async function getTopScoresByGames(
   );
 
   return Object.fromEntries(results);
-}
-
-export async function insertScore(entry: {
-  gameId: string;
-  name: string;
-  score: number;
-}): Promise<void> {
-  const supabase = createBrowserClient();
-  const { error } = await supabase.from("scores").insert({
-    game_id: entry.gameId,
-    name: entry.name,
-    score: entry.score,
-  });
-
-  if (error) throw error;
 }

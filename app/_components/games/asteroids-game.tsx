@@ -13,7 +13,7 @@ import {
   type AsteroidsHandle,
   type AsteroidsSnapshot,
 } from "@/lib/games/asteroids/engine";
-import { appendScore } from "@/lib/storage";
+import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
 
 const INITIAL_SNAPSHOT: AsteroidsSnapshot = {
@@ -35,6 +35,8 @@ export function AsteroidsGame({ game }: { game: Game }) {
   const [name, setName] = useState("INVITADO");
   const [initials, setInitials] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
@@ -80,15 +82,28 @@ export function AsteroidsGame({ game }: { game: Game }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
 
-  const handleSave = () => {
-    appendScore({ game: game.id, score: snapshot.score, name: initials });
-    setSaved(true);
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await insertScore({
+        gameId: game.id,
+        name: initials,
+        score: snapshot.score,
+      });
+      setSaved(true);
+    } catch {
+      setSaveError("No se pudo guardar la puntuación. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePlayAgain = () => {
     handleRef.current?.restart();
     setPaused(false);
     setSaved(false);
+    setSaveError(null);
     setInitials("");
   };
 
@@ -161,17 +176,38 @@ export function AsteroidsGame({ game }: { game: Game }) {
               {snapshot.score.toLocaleString("es-ES")}
             </div>
             {!saved ? (
-              <div className="input-row">
-                <input
-                  value={initials}
-                  onChange={(e) =>
-                    setInitials(e.target.value.toUpperCase().slice(0, 10))
-                  }
-                  placeholder="TUS INICIALES"
-                />
-                <button className="btn yellow" onClick={handleSave}>
-                  GUARDAR PUNTUACIÓN
-                </button>
+              <div
+                className="input-row"
+                style={{
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                  gap: 8,
+                }}
+              >
+                <div className="input-row">
+                  <input
+                    value={initials}
+                    onChange={(e) =>
+                      setInitials(e.target.value.toUpperCase().slice(0, 10))
+                    }
+                    placeholder="TUS INICIALES"
+                  />
+                  <button
+                    className="btn yellow"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? "GUARDANDO…" : "GUARDAR PUNTUACIÓN"}
+                  </button>
+                </div>
+                {saveError && (
+                  <div
+                    className="toast-saved"
+                    style={{ color: "var(--magenta, #ff2fb3)" }}
+                  >
+                    ▸ {saveError}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
