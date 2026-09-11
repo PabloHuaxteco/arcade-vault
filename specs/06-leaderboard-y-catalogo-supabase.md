@@ -1,6 +1,6 @@
 # SPEC 06 — Leaderboard y catálogo de juegos reales en Supabase
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 04, SPEC 05
 > **Fecha:** 2026-09-10
 > **Objetivo:** Migrar el catálogo de juegos (`lib/games.ts`) y el salón de la fama (`lib/leaderboard.ts`) de datos hardcoded/inventados a dos tablas reales de Supabase (`games` y `scores`), con `rocas` guardando puntuaciones de verdad.
