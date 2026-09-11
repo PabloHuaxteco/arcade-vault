@@ -1,6 +1,6 @@
 # SPEC 05 — Juego de asteroides real para la ficha `rocas`
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01
 > **Fecha:** 2026-09-10
 > **Objetivo:** Adaptar el juego de `references/started-games/02-asteroids/` a la plataforma como motor real jugable de la ficha `rocas`, montado en un `<canvas>` dentro del reproductor, con el HUD, los botones y el modal de guardado de la plataforma alimentados por el estado del juego.
