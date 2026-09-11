@@ -4,7 +4,10 @@
 import { notFound } from "next/navigation";
 import { GamePlayer } from "@/app/_components/game-player";
 import { AsteroidsGame } from "@/app/_components/games/asteroids-game";
+import { TetrisGame } from "@/app/_components/games/tetris-game";
 import { getGameById } from "@/lib/games";
+
+const ENGINES = { asteroids: AsteroidsGame, tetris: TetrisGame } as const;
 
 export default async function GamePlayerPage({
   params,
@@ -13,8 +16,11 @@ export default async function GamePlayerPage({
   const game = await getGameById(id);
   if (!game) notFound();
 
-  if (game.engine === "asteroids") {
-    return <AsteroidsGame game={game} />;
+  const Engine = game.engine
+    ? ENGINES[game.engine as keyof typeof ENGINES]
+    : undefined;
+  if (Engine) {
+    return <Engine game={game} />;
   }
 
   return <GamePlayer game={game} />;
