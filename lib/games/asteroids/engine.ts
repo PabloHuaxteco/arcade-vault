@@ -399,6 +399,14 @@ export function createAsteroidsGame(
   // Estado de partida: encapsulado por completo dentro de la fábrica, para
   // permitir un reinicio limpio y, en teoría, dos instancias simultáneas.
   const keys: Record<string, boolean> = {};
+  const justPressed: Record<string, boolean> = {};
+  const CONTROL_CODES = [
+    "Space",
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+  ];
 
   let ship: Ship;
   let bullets: Bullet[];
@@ -417,6 +425,29 @@ export function createAsteroidsGame(
   let lastTime: number | null = null;
   let rafId: number | null = null;
   let lastSnapshot: AsteroidsSnapshot | null = null;
+
+  function pressed(code: string) {
+    const val = justPressed[code];
+    justPressed[code] = false;
+    return val;
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    justPressed[e.code] = !keys[e.code];
+    keys[e.code] = true;
+    // Solo bloquea el scroll de la página mientras la partida está activa;
+    // nunca en pausa ni en 'gameover'.
+    if (
+      (state === "playing" || state === "dead") &&
+      CONTROL_CODES.includes(e.code)
+    ) {
+      e.preventDefault();
+    }
+  }
+
+  function handleKeyUp(e: KeyboardEvent) {
+    keys[e.code] = false;
+  }
 
   function spawnAsteroids(count: number) {
     const SAFE_DIST = 130;
@@ -515,6 +546,11 @@ export function createAsteroidsGame(
         ship.reset();
       }
       return;
+    }
+
+    // Disparar
+    if (pressed("Space")) {
+      bullets.push(...ship.tryShoot(tripleShotTimer > 0));
     }
 
     if (tripleShotTimer > 0) tripleShotTimer -= dt;
@@ -640,6 +676,8 @@ export function createAsteroidsGame(
 
   return {
     start() {
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
       lastTime = null;
       rafId = requestAnimationFrame(loop);
     },
@@ -663,6 +701,8 @@ export function createAsteroidsGame(
       emitState();
     },
     destroy() {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
