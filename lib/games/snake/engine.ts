@@ -86,6 +86,13 @@ interface Fruit {
   pos: Cell;
 }
 
+const KEY_TO_DIRECTION: Record<string, Direction> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+};
+
 // ── Contrato público ───────────────────────────────────────────────────────────
 export interface SnakeSnapshot extends GameSnapshot {
   length: number; // segmentos de la serpiente, incluida la cabeza
@@ -122,6 +129,7 @@ export function createSnakeGame(
   let fruitsEaten: number;
   let speedTier: number;
   let dyingElapsedMs: number;
+  let paused: boolean;
 
   let lastTime: number | null = null;
   let rafId: number | null = null;
@@ -176,6 +184,7 @@ export function createSnakeGame(
     fruitsEaten = 0;
     speedTier = 1;
     dyingElapsedMs = 0;
+    paused = false;
     spawnFruit();
     emitState();
   }
@@ -206,10 +215,78 @@ export function createSnakeGame(
     opts.onState(snapshot);
   }
 
+  // ── Input ──────────────────────────────────────────────────────────────────
+  function setPendingDirection(dir: Direction) {
+    if (OPPOSITE_DIRECTION[dir] === direction) return; // bloquea el giro de 180°
+    pendingDirection = dir;
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    const dir = KEY_TO_DIRECTION[e.key];
+    if (!dir) return;
+    const active = !paused && (phase === "playing" || phase === "dying");
+    if (active) e.preventDefault();
+    if (paused || phase !== "playing") return;
+    setPendingDirection(dir);
+  }
+
+  // ── Tick de grid ─────────────────────────────────────────────────────────────
+  function doTick() {
+    direction = pendingDirection;
+    const delta = DIRECTION_DELTAS[direction];
+    const head = segments[0];
+    const newHead: Cell = { x: head.x + delta.x, y: head.y + delta.y };
+
+    const outOfBounds =
+      newHead.x < 0 || newHead.x >= COLS || newHead.y < 0 || newHead.y >= ROWS;
+    const eating = newHead.x === fruit.pos.x && newHead.y === fruit.pos.y;
+    const bodyToCheck = eating ? segments : segments.slice(0, -1);
+    const hitsSelf = bodyToCheck.some(
+      (s) => s.x === newHead.x && s.y === newHead.y
+    );
+
+    if (outOfBounds || hitsSelf) {
+      phase = "dying";
+      dyingElapsedMs = 0;
+      emitState();
+      return;
+    }
+
+    segments.unshift(newHead);
+    if (eating) {
+      score += FRUIT_POINTS;
+      fruitsEaten += 1;
+      if (fruitsEaten % FRUITS_PER_SPEEDUP === 0) {
+        speedTier += 1;
+        tickIntervalMs = Math.max(
+          MIN_INTERVAL_MS,
+          tickIntervalMs - SPEED_STEP_MS
+        );
+      }
+      spawnFruit();
+    } else {
+      segments.pop();
+    }
+    emitState();
+  }
+
   function update(dt: number) {
-    void dt;
-    // El avance por ticks de grid, el input y las colisiones se añaden en el
-    // siguiente paso del plan de implementación (SPEC 09, paso 3).
+    if (phase === "over") return;
+
+    if (phase === "dying") {
+      dyingElapsedMs += dt * 1000;
+      if (dyingElapsedMs >= BLINK_DURATION_MS) {
+        phase = "over";
+        emitState();
+      }
+      return;
+    }
+
+    tickAccumulator += dt * 1000;
+    if (tickAccumulator >= tickIntervalMs) {
+      doTick();
+      tickAccumulator = 0;
+    }
   }
 
   // ── Dibujo ─────────────────────────────────────────────────────────────────
@@ -265,16 +342,19 @@ export function createSnakeGame(
 
   return {
     start() {
+      window.addEventListener("keydown", handleKeyDown);
       lastTime = null;
       rafId = requestAnimationFrame(loop);
     },
     pause() {
+      paused = true;
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
     },
     resume() {
+      paused = false;
       if (rafId === null) {
         lastTime = null;
         rafId = requestAnimationFrame(loop);
@@ -288,6 +368,7 @@ export function createSnakeGame(
       emitState();
     },
     destroy() {
+      window.removeEventListener("keydown", handleKeyDown);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
