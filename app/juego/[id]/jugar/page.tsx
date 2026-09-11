@@ -4,13 +4,13 @@
 import { notFound } from "next/navigation";
 import { GamePlayer } from "@/app/_components/game-player";
 import { AsteroidsGame } from "@/app/_components/games/asteroids-game";
-import { GAMES } from "@/lib/games";
+import { getGameById } from "@/lib/games";
 
 export default async function GamePlayerPage({
   params,
 }: PageProps<"/juego/[id]/jugar">) {
   const { id } = await params;
-  const game = GAMES.find((g) => g.id === id);
+  const game = await getGameById(id);
   if (!game) notFound();
 
   if (game.engine === "asteroids") {
