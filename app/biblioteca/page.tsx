@@ -2,10 +2,12 @@
 // delega el buscador + chips + grid en la isla Client <LibraryBrowser>.
 // Portado de la función Library de references/templates/biblioteca.jsx.
 
-import { CATS, GAMES } from "@/lib/games";
+import { CATS, getGames } from "@/lib/games";
 import { LibraryBrowser } from "../_components/library-browser";
 
-export default function LibraryPage() {
+export default async function LibraryPage() {
+  const games = await getGames();
+
   return (
     <div className="fade-in">
       <section className="av-hero">
@@ -15,7 +17,7 @@ export default function LibraryPage() {
         </div>
       </section>
 
-      <LibraryBrowser games={GAMES} cats={CATS} />
+      <LibraryBrowser games={games} cats={CATS} />
     </div>
   );
 }
