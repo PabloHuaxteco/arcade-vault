@@ -13,6 +13,7 @@ export interface Game {
   color: GameColor;
   best: number; // mejor puntuación global
   plays: string; // "12.4K"
+  engine?: "asteroids"; // si está, la ruta /juego/[id]/jugar monta el motor real
 }
 
 export const GAMES: Game[] = [
@@ -75,12 +76,13 @@ export const GAMES: Game[] = [
     id: "rocas",
     title: "ROCAS",
     short: "Pulveriza asteroides en gravedad cero.",
-    long: "Tu nave triangular flota en vacío absoluto. Dispara y rota para dividir rocas en fragmentos cada vez más pequeños. Cuidado con los OVNIs en el horizonte.",
+    long: "Tu nave triangular flota en vacío absoluto. Dispara y rota para dividir rocas en fragmentos cada vez más pequeños. Recoge power-ups de disparo triple y escudo para sobrevivir más niveles.",
     cat: "SHOOTER",
     cover: "cover-rocas",
     color: "yellow",
     best: 41200,
     plays: "15.6K",
+    engine: "asteroids",
   },
   {
     id: "ranaria",
@@ -106,4 +108,10 @@ export const GAMES: Game[] = [
   },
 ];
 
-export const CATS: readonly string[] = ["TODOS", "ARCADE", "PUZZLE", "SHOOTER", "VERSUS"];
+export const CATS: readonly string[] = [
+  "TODOS",
+  "ARCADE",
+  "PUZZLE",
+  "SHOOTER",
+  "VERSUS",
+];
