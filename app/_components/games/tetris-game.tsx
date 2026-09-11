@@ -199,7 +199,7 @@ export function TetrisGame({ game }: { game: Game }) {
       </div>
 
       <div className="crt">
-        <div className="crt-screen-tetris">
+        <div className="crt-screen">
           <canvas
             ref={canvasRef}
             width={300}
