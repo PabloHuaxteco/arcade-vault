@@ -220,6 +220,66 @@ export function TetrisGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      {snapshot.over && (
+        <div className="modal-bd">
+          <div className="modal">
+            <h2>FIN DEL JUEGO</h2>
+            <div className="final-label">PUNTUACIÓN FINAL</div>
+            <div className="final">
+              {snapshot.score.toLocaleString("es-ES")}
+            </div>
+            {!saved ? (
+              <div
+                className="input-row"
+                style={{
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                  gap: 8,
+                }}
+              >
+                <div className="input-row">
+                  <input
+                    value={initials}
+                    onChange={(e) =>
+                      setInitials(e.target.value.toUpperCase().slice(0, 10))
+                    }
+                    placeholder="TUS INICIALES"
+                  />
+                  <button
+                    className="btn yellow"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? "GUARDANDO…" : "GUARDAR PUNTUACIÓN"}
+                  </button>
+                </div>
+                {saveError && (
+                  <div
+                    className="toast-saved"
+                    style={{ color: "var(--magenta, #ff2fb3)" }}
+                  >
+                    ▸ {saveError}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
+            )}
+            <div className="actions">
+              <button className="btn" onClick={handlePlayAgain}>
+                JUGAR DE NUEVO
+              </button>
+              <button
+                className="btn magenta"
+                onClick={() => router.push("/biblioteca")}
+              >
+                VOLVER AL VAULT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
