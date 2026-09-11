@@ -1,6 +1,6 @@
 # SPEC 07 — Juego de Tetris real para la ficha `caida`
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 05, SPEC 06
 > **Fecha:** 2026-09-11
 > **Objetivo:** Adaptar el juego de `references/started-games/03-tetris/` a la plataforma como motor real jugable de la ficha `caida`, sustituyendo la cadena de `if` de `app/juego/[id]/jugar/page.tsx` por un registro `engine → componente` que ya contempla `asteroids` y el nuevo `tetris`.
