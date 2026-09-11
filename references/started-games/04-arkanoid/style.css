@@ -1,0 +1,18 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #1e1e24;
+}
+
+#game {
+  display: block;
+  background: #000;
+}
