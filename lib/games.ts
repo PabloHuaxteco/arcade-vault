@@ -15,7 +15,7 @@ export interface Game {
   color: GameColor;
   best: number; // ya resuelto: MAX(scores.score) o el valor semilla si no hay filas
   plays: string; // "12.4K"
-  engine?: "asteroids" | "tetris" | "arkanoid"; // si está, la ruta /juego/[id]/jugar monta el motor real
+  engine?: "asteroids" | "tetris" | "arkanoid" | "snake"; // si está, la ruta /juego/[id]/jugar monta el motor real
 }
 
 export const CATS: readonly string[] = [
@@ -58,7 +58,8 @@ export async function getGames(): Promise<Game[]> {
     best: Math.max(g.best, bestByGame.get(g.id) ?? 0),
     plays: g.plays,
     engine:
-      (g.engine as "asteroids" | "tetris" | "arkanoid" | null) ?? undefined,
+      (g.engine as "asteroids" | "tetris" | "arkanoid" | "snake" | null) ??
+      undefined,
   }));
 }
 
@@ -90,6 +91,7 @@ export async function getGameById(id: string): Promise<Game | null> {
     best: Math.max(game.best, topScore?.score ?? 0),
     plays: game.plays,
     engine:
-      (game.engine as "asteroids" | "tetris" | "arkanoid" | null) ?? undefined,
+      (game.engine as "asteroids" | "tetris" | "arkanoid" | "snake" | null) ??
+      undefined,
   };
 }
