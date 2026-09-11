@@ -368,6 +368,7 @@ export function createTetrisGame(
   const ctx2d = canvas.getContext("2d");
   if (!ctx2d) throw new Error("No se pudo obtener el contexto 2D del canvas.");
   const ctx: CanvasRenderingContext2D = ctx2d;
+  const nextCtx = opts.nextCanvas?.getContext("2d") ?? null;
   const skin = SKINS[opts.skin] ?? SKINS.retro;
 
   // Estado de partida: encapsulado por completo dentro de la fábrica, para
@@ -436,6 +437,19 @@ export function createTetrisGame(
     if (collide(board, current.shape, current.x, current.y)) {
       gameOver = true;
     }
+    drawNextPreview();
+  }
+
+  function drawNextPreview() {
+    if (!nextCtx || !opts.nextCanvas) return;
+    const NB = 30;
+    nextCtx.clearRect(0, 0, opts.nextCanvas.width, opts.nextCanvas.height);
+    const shape = next.shape;
+    const offX = Math.floor((4 - shape[0].length) / 2);
+    const offY = Math.floor((4 - shape.length) / 2);
+    for (let r = 0; r < shape.length; r++)
+      for (let c = 0; c < shape[r].length; c++)
+        drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB, skin);
   }
 
   function applyClearedLines(cleared: number) {
