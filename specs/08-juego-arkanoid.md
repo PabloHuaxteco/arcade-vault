@@ -1,6 +1,6 @@
 # SPEC 08 — Juego de Arkanoid real para la ficha `bloque-buster`
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 05, SPEC 06
 > **Fecha:** 2026-09-11
 > **Objetivo:** Adaptar el juego de `references/started-games/04-arkanoid/` a la plataforma como motor real jugable de la ficha `bloque-buster`, añadiendo una entrada al registro `engine → componente` de `app/juego/[id]/jugar/page.tsx` junto a `asteroids` y `tetris`.
