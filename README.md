@@ -31,6 +31,17 @@ rellena estas dos variables:
 Sin estas variables el resto del sitio funciona; solo el envío del formulario
 mostrará un error inline.
 
+### Supabase
+
+La conexión base con Supabase usa `@supabase/ssr` (clientes en `lib/supabase/`).
+Copia también estas dos variables de `.env.example` a `.env.local`:
+
+- `NEXT_PUBLIC_SUPABASE_URL` — URL del proyecto (`https://<project-ref>.supabase.co`).
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — clave `sb_publishable_…`, pública por
+  diseño. Ambas salen del panel de Supabase → Project Settings → API Keys.
+
+Con las dos puestas, la ruta temporal `/debug/supabase` muestra `CONECTADO`.
+
 ## Commands
 
 - `npm run dev` — start the dev server (also re-adds the agent-rules block to `AGENTS.md`)
