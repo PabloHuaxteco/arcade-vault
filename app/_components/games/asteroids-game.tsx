@@ -13,6 +13,7 @@ import {
   type AsteroidsHandle,
   type AsteroidsSnapshot,
 } from "@/lib/games/asteroids/engine";
+import { appendScore } from "@/lib/storage";
 import { useSession } from "../session-provider";
 
 const INITIAL_SNAPSHOT: AsteroidsSnapshot = {
@@ -32,12 +33,21 @@ export function AsteroidsGame({ game }: { game: Game }) {
   const [snapshot, setSnapshot] = useState<AsteroidsSnapshot>(INITIAL_SNAPSHOT);
   const [paused, setPaused] = useState(false);
   const [name, setName] = useState("INVITADO");
+  const [initials, setInitials] = useState("");
+  const [saved, setSaved] = useState(false);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
   useEffect(() => {
     if (user) setName(user.name);
   }, [user]);
+
+  // Al terminar la partida, prellenar las iniciales con el nombre de sesión.
+  useEffect(() => {
+    if (snapshot.over) {
+      setInitials((prev) => prev || name.toUpperCase().slice(0, 10));
+    }
+  }, [snapshot.over, name]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -69,6 +79,18 @@ export function AsteroidsGame({ game }: { game: Game }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
+
+  const handleSave = () => {
+    appendScore({ game: game.id, score: snapshot.score, name: initials });
+    setSaved(true);
+  };
+
+  const handlePlayAgain = () => {
+    handleRef.current?.restart();
+    setPaused(false);
+    setSaved(false);
+    setInitials("");
+  };
 
   return (
     <div className="av-player fade-in">
@@ -129,6 +151,45 @@ export function AsteroidsGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      {snapshot.over && (
+        <div className="modal-bd">
+          <div className="modal">
+            <h2>FIN DEL JUEGO</h2>
+            <div className="final-label">PUNTUACIÓN FINAL</div>
+            <div className="final">
+              {snapshot.score.toLocaleString("es-ES")}
+            </div>
+            {!saved ? (
+              <div className="input-row">
+                <input
+                  value={initials}
+                  onChange={(e) =>
+                    setInitials(e.target.value.toUpperCase().slice(0, 10))
+                  }
+                  placeholder="TUS INICIALES"
+                />
+                <button className="btn yellow" onClick={handleSave}>
+                  GUARDAR PUNTUACIÓN
+                </button>
+              </div>
+            ) : (
+              <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
+            )}
+            <div className="actions">
+              <button className="btn" onClick={handlePlayAgain}>
+                JUGAR DE NUEVO
+              </button>
+              <button
+                className="btn magenta"
+                onClick={() => router.push("/biblioteca")}
+              >
+                VOLVER AL VAULT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
