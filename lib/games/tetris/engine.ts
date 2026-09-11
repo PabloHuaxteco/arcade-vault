@@ -425,9 +425,71 @@ export function createTetrisGame(
     gameOver = false;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     dropAccum = 0;
-    current = randomPiece();
     next = randomPiece();
+    spawn();
     emitState();
+  }
+
+  function spawn() {
+    current = next;
+    next = randomPiece();
+    if (collide(board, current.shape, current.x, current.y)) {
+      gameOver = true;
+    }
+  }
+
+  function applyClearedLines(cleared: number) {
+    if (cleared) {
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+      lines += cleared;
+      score += (LINE_SCORES[cleared] || 0) * level;
+      level = Math.max(1, Math.floor(lines / 10) + 1);
+      dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    } else {
+      combo = 0;
+    }
+  }
+
+  function lockPiece() {
+    const bombs = bombCells(current);
+    merge(board, current);
+    if (bombs.length) {
+      const destroyed = explode(board, bombs);
+      if (destroyed) score += destroyed * BOMB_BLOCK_SCORE * level;
+    }
+    applyClearedLines(clearLines(board));
+    spawn();
+    emitState();
+  }
+
+  function hardDrop() {
+    const gy = ghostY(board, current);
+    score += (gy - current.y) * 2;
+    current.y = gy;
+    lockPiece();
+  }
+
+  function softDrop() {
+    if (!collide(board, current.shape, current.x, current.y + 1)) {
+      current.y++;
+      score += 1;
+      emitState();
+    } else {
+      lockPiece();
+    }
+  }
+
+  function tryRotate() {
+    const rotated = rotateCW(current.shape);
+    const kicks = [0, -1, 1, -2, 2];
+    for (const kick of kicks) {
+      if (!collide(board, rotated, current.x + kick, current.y)) {
+        current.shape = rotated;
+        current.x += kick;
+        return;
+      }
+    }
   }
 
   // ── Dibujo ─────────────────────────────────────────────────────────────────
@@ -475,33 +537,87 @@ export function createTetrisGame(
         dropAccum = 0;
         if (!collide(board, current.shape, current.x, current.y + 1)) {
           current.y++;
+        } else {
+          lockPiece();
         }
-        // El bloqueo de pieza (lockPiece) se añade en el siguiente paso del plan.
       }
     }
     draw();
     rafId = requestAnimationFrame(loop);
   }
 
+  // ── Control de pausa (compartido por el handle y el atajo interno P/Escape) ──
+  function pauseGame() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  }
+
+  function resumeGame() {
+    if (rafId === null) {
+      lastTime = null;
+      rafId = requestAnimationFrame(loop);
+    }
+  }
+
+  function togglePause() {
+    if (gameOver) return;
+    if (rafId === null) resumeGame();
+    else pauseGame();
+  }
+
+  // ── Input ──────────────────────────────────────────────────────────────────
+  const CONTROL_CODES = [
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowDown",
+    "ArrowUp",
+    "Space",
+  ];
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.code === "KeyP" || e.code === "Escape") {
+      togglePause();
+      return;
+    }
+    const active = !gameOver && rafId !== null;
+    if (active && CONTROL_CODES.includes(e.code)) {
+      e.preventDefault();
+    }
+    if (!active) return;
+    switch (e.code) {
+      case "ArrowLeft":
+        if (!collide(board, current.shape, current.x - 1, current.y))
+          current.x--;
+        break;
+      case "ArrowRight":
+        if (!collide(board, current.shape, current.x + 1, current.y))
+          current.x++;
+        break;
+      case "ArrowDown":
+        softDrop();
+        break;
+      case "ArrowUp":
+      case "KeyX":
+        tryRotate();
+        break;
+      case "Space":
+        hardDrop();
+        break;
+    }
+  }
+
   initGame();
 
   return {
     start() {
+      window.addEventListener("keydown", handleKeyDown);
       lastTime = null;
       rafId = requestAnimationFrame(loop);
     },
-    pause() {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    },
-    resume() {
-      if (rafId === null) {
-        lastTime = null;
-        rafId = requestAnimationFrame(loop);
-      }
-    },
+    pause: pauseGame,
+    resume: resumeGame,
     restart() {
       initGame();
     },
@@ -510,10 +626,8 @@ export function createTetrisGame(
       emitState();
     },
     destroy() {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      window.removeEventListener("keydown", handleKeyDown);
+      pauseGame();
     },
   };
 }
