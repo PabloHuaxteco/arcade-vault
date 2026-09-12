@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { GamePlayer } from "@/app/_components/game-player";
 import { ArkanoidGame } from "@/app/_components/games/arkanoid-game";
 import { AsteroidsGame } from "@/app/_components/games/asteroids-game";
+import { SnakeGame } from "@/app/_components/games/snake-game";
 import { TetrisGame } from "@/app/_components/games/tetris-game";
 import { getGameById } from "@/lib/games";
 
@@ -12,6 +13,7 @@ const ENGINES = {
   asteroids: AsteroidsGame,
   tetris: TetrisGame,
   arkanoid: ArkanoidGame,
+  snake: SnakeGame,
 } as const;
 
 export default async function GamePlayerPage({
