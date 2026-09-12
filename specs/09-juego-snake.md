@@ -1,6 +1,6 @@
 # SPEC 09 — Juego de Snake real para la ficha `serpentina`
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 05, SPEC 06
 > **Fecha:** 2026-09-11
 > **Objetivo:** Diseñar y enchufar un motor real de Snake (grid, frutas, crecimiento y velocidad progresiva) a la ficha `serpentina` existente, usando el atlas de frutas de `references/source-assets/snake-assets/` y añadiendo una cuarta entrada al registro `engine → componente` de `app/juego/[id]/jugar/page.tsx`.
