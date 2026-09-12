@@ -10,14 +10,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Skills
 
-Usa siempre /frontend-design para diseñar la interfaz de usuario.
+- Usa siempre `/frontend-design` para diseñar interfaz nueva. Las pantallas portadas pixel a pixel desde `references/templates/` (home, biblioteca, acerca) son la excepción deliberada: se replican con las clases ya existentes en `app/globals.css`, sin pasar por `/frontend-design`.
+- Este repo sigue Spec Driven Design (skills instaladas vía `npx skills@latest add Klerith/fernando-skills`, ver `README.md`). Todo cambio de producto pasa por una spec en `specs/` antes de tocar código:
+  - `/spec` — diseña specs de features generales de la plataforma.
+  - `/spec-game` — diseña specs específicamente para nuevos juegos jugables (motor + leaderboard Supabase), portando una carpeta de `references/started-games/` o diseñando desde cero. Nunca escribe código de juego, solo la spec.
+  - `/spec-impl` — implementa una spec ya aprobada.
+  - Las specs numeradas viven en `specs/NN-*.md` con estado (`Implementado`/`Aprobado`/etc.) en el encabezado; consúltalas antes de tocar el área que cubren.
 
 ## Architecture
 
-Arcade Vault is an online arcade platform where players compete on points (see `README.md`, in Spanish). The codebase is currently the initial `create-next-app` scaffold — `app/page.tsx` and `app/layout.tsx` are still starter content.
+Arcade Vault is an online arcade platform where players compete on points (see `README.md`, in Spanish). It has grown well past the initial `create-next-app` scaffold — the platform shell (home, library, game player, auth, leaderboard) is built and several games have real engines (see `references/implemented-games.md`).
 
 - **App Router only.** All routes live in `app/`. Server Components by default; add `"use client"` where needed.
-- **TypeScript, strict.** Path alias `@/*` maps to the repo root (`tsconfig.json`). Typed routes are on — `layout.tsx` uses the generated `LayoutProps<"/">` global rather than a hand-written props type.
+- **TypeScript, strict.** Path alias `@/*` maps to the repo root (`tsconfig.json`). Typed routes are on — pages use generated `PageProps<"/route">` / `LayoutProps<"/">` globals rather than hand-written props types.
 - **Tailwind CSS v4.** Configured entirely in `app/globals.css` via `@import "tailwindcss"` and `@theme inline` — there is no `tailwind.config.*`. PostCSS uses `@tailwindcss/postcss`.
 - **Fonts** are loaded with `next/font/google` (Geist / Geist Mono) in `app/layout.tsx` and exposed as CSS variables.
 
+### Routes (`app/`)
+
+- `/` — marketing home/landing (ported from `references/templates/home-about/home.jsx`).
+- `/biblioteca` — game catalog/library (moved here from `/` in SPEC 02).
+- `/juego/[id]` — game detail page; `/juego/[id]/jugar` — the actual player, a Server Component that resolves the game by id and dispatches to a real engine or the fallback fake `<GamePlayer>`.
+- `/salon` — hall of fame / global leaderboard.
+- `/acerca` — about + contact form (Server Action → Resend).
+- `/entrar` — fake auth (`localStorage`-backed, see below).
+- `/debug/supabase` — temporary connectivity check page.
+
+### Game engines (`lib/games/<engine>/engine.ts` + `app/_components/games/<engine>-game.tsx`)
+
+Games with real, playable canvas engines are each ported from a `references/started-games/` reference (except Snake, designed from scratch) and registered by `engine` key in the `ENGINES` map in `app/juego/[id]/jugar/page.tsx`. See `references/implemented-games.md` for the current list of implemented games (with their spec) and pending catalog entries without an engine yet.
+
+Any catalog entry without a matching `engine` value still falls back to the decorative fake `<GamePlayer>` (`app/_components/game-player.tsx`). New games get their spec via `/spec-game`, then an implementation that adds an engine module, a game component, and a new key in `ENGINES`.
+
+### Data layer
+
+- **Supabase** (`lib/supabase/client.ts`, `lib/supabase/server.ts`, `@supabase/ssr`) backs the real game catalog (`lib/games.ts`) and leaderboard (`lib/scores.ts` / `lib/scores-client.ts`) — tables `games` and `scores`, since SPEC 06. Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (see `README.md`).
+- **Auth is still fake.** `app/_components/auth-form.tsx` + `app/_components/session-provider.tsx` + `lib/storage.ts` run on `localStorage`; there is no real Supabase auth yet.
+- **Contact form** (`/acerca`) sends real email via a Server Action calling Resend (`RESEND_API_KEY`, `CONTACT_TO` env vars).
