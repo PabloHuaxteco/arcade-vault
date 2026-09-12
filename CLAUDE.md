@@ -17,6 +17,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `/spec-impl` — implementa una spec ya aprobada.
   - Las specs numeradas viven en `specs/NN-*.md` con estado (`Implementado`/`Aprobado`/etc.) en el encabezado; consúltalas antes de tocar el área que cubren.
 
+## Agents
+
+- `game-planner` (`.claude/agents/game-planner.md`) — decide qué juego construir después. Analiza el catálogo real (`lib/games.ts`, `references/implemented-games.md`), las restricciones técnicas de la plataforma (`.claude/skills/spec-game/contrato-plataforma.md`) y su propia memoria persistente en `references/game-suggestions-todo.md`, y devuelve 1-3 candidatos razonados con veredicto. No escribe specs ni código: el siguiente paso es correr `/spec-game` con la recomendación elegida.
+
 ## Architecture
 
 Arcade Vault is an online arcade platform where players compete on points (see `README.md`, in Spanish). It has grown well past the initial `create-next-app` scaffold — the platform shell (home, library, game player, auth, leaderboard) is built and several games have real engines (see `references/implemented-games.md`).
