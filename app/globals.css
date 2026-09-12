@@ -1009,6 +1009,10 @@ a {
 
 /* ===== player ===== */
 .av-player {
+  /* Alto que ocupa todo lo que NO es la pantalla: nav sticky + margen
+     superior + .player-hud + padding del bezel + .crt-bottom + respiro
+     inferior. Se usa para que la pantalla 4:3 quepa en el viewport. */
+  --player-chrome: 320px;
   max-width: 1100px;
   margin: 32px auto;
   padding: 0 24px 64px;
@@ -1023,6 +1027,13 @@ a {
   background: var(--bg-2);
   margin-bottom: 18px;
   flex-wrap: wrap;
+  /* Mismo tope que .crt: en viewports bajos el bezel se angosta según la
+     altura disponible, y el HUD debe seguirlo para no quedar más ancho que
+     la pantalla que describe. */
+  width: 100%;
+  max-width: calc(max(360px, 100dvh - var(--player-chrome)) * 4 / 3 + 48px);
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 .hud-stat {
   display: flex;
@@ -1065,6 +1076,13 @@ a {
     0 0 0 7px #2a2a35,
     0 30px 80px -20px rgba(0, 245, 255, 0.35);
   overflow: hidden;
+  /* El ancho del bezel se limita por la altura disponible: la pantalla
+     interior mide (ancho - 2 * 24px de padding) y su alto es 3/4 de eso, así
+     que despejando sale el max-width. El max(...) evita que se colapse en
+     ventanas muy bajas (a partir de ahí sí se hace scroll). */
+  width: 100%;
+  max-width: calc(max(360px, 100dvh - var(--player-chrome)) * 4 / 3 + 48px);
+  margin-inline: auto;
 }
 .crt::before {
   content: "";
@@ -1683,6 +1701,7 @@ a {
     margin: 24px auto;
   }
   .av-player {
+    --player-chrome: 400px;
     padding: 0 16px 32px;
   }
 }
