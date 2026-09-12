@@ -1027,6 +1027,13 @@ a {
   background: var(--bg-2);
   margin-bottom: 18px;
   flex-wrap: wrap;
+  /* Mismo tope que .crt: en viewports bajos el bezel se angosta según la
+     altura disponible, y el HUD debe seguirlo para no quedar más ancho que
+     la pantalla que describe. */
+  width: 100%;
+  max-width: calc(max(360px, 100dvh - var(--player-chrome)) * 4 / 3 + 48px);
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 .hud-stat {
   display: flex;
