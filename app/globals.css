@@ -1341,8 +1341,13 @@ a {
 }
 .next-canvas {
   display: block;
-  width: 120px;
-  height: 120px;
+  /* Relativo al ancho de .crt-screen (su contenedor absolute): en pantallas
+     angostas escala hacia abajo en vez de quedar fijo en 120px y tapar buena
+     parte del tablero; en desktop, el max-width mantiene el tamaño original. */
+  width: 28%;
+  max-width: 120px;
+  aspect-ratio: 1 / 1;
+  height: auto;
   background: #000;
   border-radius: 12px / 28px;
   box-shadow:

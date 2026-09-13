@@ -354,6 +354,10 @@ export interface TetrisHandle {
   resume(): void;
   restart(): void;
   end(): void;
+  /** Equivalente táctil de un keydown: ejecuta la acción una vez. */
+  press(code: string): void;
+  /** Tetris no reacciona a keyup: no-op, igual que con teclado físico. */
+  release(code: string): void;
   destroy(): void;
 }
 
@@ -590,17 +594,8 @@ export function createTetrisGame(
     "Space",
   ];
 
-  function handleKeyDown(e: KeyboardEvent) {
-    if (e.code === "KeyP" || e.code === "Escape") {
-      togglePause();
-      return;
-    }
-    const active = !gameOver && rafId !== null;
-    if (active && CONTROL_CODES.includes(e.code)) {
-      e.preventDefault();
-    }
-    if (!active) return;
-    switch (e.code) {
+  function runControl(code: string) {
+    switch (code) {
       case "ArrowLeft":
         if (!collide(board, current.shape, current.x - 1, current.y))
           current.x--;
@@ -622,6 +617,19 @@ export function createTetrisGame(
     }
   }
 
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.code === "KeyP" || e.code === "Escape") {
+      togglePause();
+      return;
+    }
+    const active = !gameOver && rafId !== null;
+    if (active && CONTROL_CODES.includes(e.code)) {
+      e.preventDefault();
+    }
+    if (!active) return;
+    runControl(e.code);
+  }
+
   initGame();
 
   return {
@@ -638,6 +646,14 @@ export function createTetrisGame(
     end() {
       gameOver = true;
       emitState();
+    },
+    press(code: string) {
+      const active = !gameOver && rafId !== null;
+      if (!active) return;
+      runControl(code);
+    },
+    release() {
+      // no-op: Tetris no reacciona a keyup, igual que con teclado físico.
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);
