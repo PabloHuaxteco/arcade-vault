@@ -11,10 +11,18 @@ import type { Game } from "@/lib/games";
 import {
   createSnakeGame,
   type SnakeHandle,
+  type SnakeSkin,
   type SnakeSnapshot,
 } from "@/lib/games/snake/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+
+const SKIN_STORAGE_KEY = "av_snake_skin";
+const SKIN_OPTIONS: { value: SnakeSkin; label: string }[] = [
+  { value: "clasico", label: "Clásico" },
+  { value: "retro", label: "Retro" },
+  { value: "neon", label: "Neon" },
+];
 
 const INITIAL_SNAPSHOT: SnakeSnapshot = {
   score: 0,
@@ -34,7 +42,9 @@ export function SnakeGame({ game }: { game: Game }) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<SnakeHandle | null>(null);
+  const skinRef = useRef<SnakeSkin>("clasico");
 
+  const [skin, setSkin] = useState<SnakeSkin>("clasico");
   const [snapshot, setSnapshot] = useState<SnakeSnapshot>(INITIAL_SNAPSHOT);
   const [paused, setPaused] = useState(false);
   const [name, setName] = useState("INVITADO");
@@ -42,6 +52,19 @@ export function SnakeGame({ game }: { game: Game }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // La preferencia de skin vive en localStorage, local al navegador (no en
+  // Supabase); se lee tras el montaje para no romper el render de servidor.
+  useEffect(() => {
+    const savedSkin = window.localStorage.getItem(SKIN_STORAGE_KEY);
+    if (
+      savedSkin === "clasico" ||
+      savedSkin === "retro" ||
+      savedSkin === "neon"
+    ) {
+      setSkin(savedSkin);
+    }
+  }, []);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
@@ -66,24 +89,44 @@ export function SnakeGame({ game }: { game: Game }) {
     });
   }, []);
 
+  // El motor se crea una sola vez: `skin` NO es dependencia de este efecto.
+  // El skin inicial se lee del ref para no recrear la instancia al cambiarlo.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const handle = createSnakeGame(canvas, { onState: setSnapshot });
+    const handle = createSnakeGame(canvas, {
+      onState: setSnapshot,
+      skin: skinRef.current,
+    });
     handleRef.current = handle;
     handle.start();
+    return () => {
+      handle.destroy();
+      handleRef.current = null;
+    };
+  }, []);
 
+  // Cambiar de skin sustituye la paleta en caliente (SnakeHandle.setSkin):
+  // la partida en curso sobrevive al cambio.
+  useEffect(() => {
+    skinRef.current = skin;
+    handleRef.current?.setSkin(skin);
+  }, [skin]);
+
+  // KeyP y Escape alternan pausa por el mismo camino que el botón.
+  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.code === "KeyP" || e.code === "Escape") togglePause();
     }
     window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      handle.destroy();
-      handleRef.current = null;
-    };
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
+
+  const handleSkinChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as SnakeSkin;
+    window.localStorage.setItem(SKIN_STORAGE_KEY, value);
+    setSkin(value);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -126,6 +169,16 @@ export function SnakeGame({ game }: { game: Game }) {
               <div className="v">{stat.v}</div>
             </div>
           ))}
+          <div className="hud-stat">
+            <div className="l">Skin</div>
+            <select value={skin} onChange={handleSkinChange}>
+              {SKIN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="hud-actions">
           <button className="btn yellow" onClick={togglePause}>

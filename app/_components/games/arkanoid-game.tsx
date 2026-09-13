@@ -11,10 +11,18 @@ import type { Game } from "@/lib/games";
 import {
   createArkanoidGame,
   type ArkanoidHandle,
+  type ArkanoidSkin,
   type ArkanoidSnapshot,
 } from "@/lib/games/arkanoid/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+
+const SKIN_STORAGE_KEY = "av_arkanoid_skin";
+const SKIN_OPTIONS: { value: ArkanoidSkin; label: string }[] = [
+  { value: "clasico", label: "Clásico" },
+  { value: "retro", label: "Retro" },
+  { value: "neon", label: "Neon" },
+];
 
 const INITIAL_SNAPSHOT: ArkanoidSnapshot = {
   score: 0,
@@ -32,7 +40,9 @@ export function ArkanoidGame({ game }: { game: Game }) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<ArkanoidHandle | null>(null);
+  const skinRef = useRef<ArkanoidSkin>("clasico");
 
+  const [skin, setSkin] = useState<ArkanoidSkin>("clasico");
   const [snapshot, setSnapshot] = useState<ArkanoidSnapshot>(INITIAL_SNAPSHOT);
   const [paused, setPaused] = useState(false);
   const [name, setName] = useState("INVITADO");
@@ -40,6 +50,19 @@ export function ArkanoidGame({ game }: { game: Game }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // La preferencia de skin vive en localStorage, local al navegador (no en
+  // Supabase); se lee tras el montaje para no romper el render de servidor.
+  useEffect(() => {
+    const savedSkin = window.localStorage.getItem(SKIN_STORAGE_KEY);
+    if (
+      savedSkin === "clasico" ||
+      savedSkin === "retro" ||
+      savedSkin === "neon"
+    ) {
+      setSkin(savedSkin);
+    }
+  }, []);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
@@ -64,10 +87,15 @@ export function ArkanoidGame({ game }: { game: Game }) {
     });
   }, []);
 
+  // El motor se crea una sola vez: `skin` NO es dependencia de este efecto.
+  // El skin inicial se lee del ref para no recrear la instancia al cambiarlo.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const handle = createArkanoidGame(canvas, { onState: setSnapshot });
+    const handle = createArkanoidGame(canvas, {
+      onState: setSnapshot,
+      skin: skinRef.current,
+    });
     handleRef.current = handle;
     handle.start();
 
@@ -82,6 +110,19 @@ export function ArkanoidGame({ game }: { game: Game }) {
       handleRef.current = null;
     };
   }, [togglePause]);
+
+  // Cambiar de skin sustituye la paleta en caliente (ArkanoidHandle.setSkin):
+  // la partida en curso sobrevive al cambio.
+  useEffect(() => {
+    skinRef.current = skin;
+    handleRef.current?.setSkin(skin);
+  }, [skin]);
+
+  const handleSkinChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as ArkanoidSkin;
+    window.localStorage.setItem(SKIN_STORAGE_KEY, value);
+    setSkin(value);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -124,6 +165,16 @@ export function ArkanoidGame({ game }: { game: Game }) {
               <div className="v">{stat.v}</div>
             </div>
           ))}
+          <div className="hud-stat">
+            <div className="l">Skin</div>
+            <select value={skin} onChange={handleSkinChange}>
+              {SKIN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="hud-actions">
           <button className="btn yellow" onClick={togglePause}>

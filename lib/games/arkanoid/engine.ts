@@ -40,7 +40,12 @@ const LEVELS: { grid: string[]; ballSpeed: number }[] = [
   },
 ];
 
-const COLOR_MAP: Record<string, string> = {
+// Clave de color de ladrillo: indexa tanto el sprite del bloque como su
+// animación de explosión y el tinte de cada skin.
+type BrickKey =
+  "red" | "yellow" | "green" | "cyan" | "magenta" | "hotpink" | "gray";
+
+const COLOR_MAP: Record<string, BrickKey> = {
   R: "red",
   Y: "yellow",
   G: "green",
@@ -63,7 +68,7 @@ interface SpriteRect {
   sh: number;
 }
 
-const EXPLOSION_FRAMES: Record<string, SpriteRect[]> = {
+const EXPLOSION_FRAMES: Record<BrickKey, SpriteRect[]> = {
   red: [
     { sx: 256, sy: 176, sw: 32, sh: 16 },
     { sx: 288, sy: 176, sw: 32, sh: 16 },
@@ -111,7 +116,7 @@ const EXPLOSION_FRAMES: Record<string, SpriteRect[]> = {
 const SPRITES: {
   paddle: SpriteRect;
   ball: SpriteRect;
-  blocks: Record<string, SpriteRect>;
+  blocks: Record<BrickKey, SpriteRect>;
 } = {
   paddle: { sx: 32, sy: 112, sw: 162, sh: 14 },
   ball: { sx: 32, sy: 32, sw: 16, sh: 16 },
@@ -127,6 +132,162 @@ const SPRITES: {
 };
 
 const SPRITESHEET_SRC = "/games/arkanoid/spritesheet-breakout.png";
+
+// ── Skins ─────────────────────────────────────────────────────────────────────
+// Arkanoid pinta el 100% de su imagen desde `spritesheet-breakout.png`: no hay
+// un solo color literal en el motor. Por eso los skins no son una tabla de hex
+// que se aplique al dibujar, sino un recoloreado de la hoja — cacheado una vez
+// por skin, nunca por frame — sobre un canvas offscreen, con cuatro pasos por
+// región de sprite:
+//
+//   1. se dibuja la región original,
+//   2. `screen` con un gris (`floor`) sube el piso de luminancia: es lo que
+//      saca del negro al bisel oscuro y al contorno horneados en el arte,
+//   3. `color` con el tono del skin sustituye tono y saturación conservando la
+//      luminosidad del paso anterior, así que el sombreado del sprite sobrevive,
+//   4. `destination-in` restaura el alpha original para no pintar el fondo.
+//
+// Como `screen` es monótono, el píxel más oscuro que puede salir es el propio
+// `floor` ya tintado: eso acota el peor contraste de cada skin. Con estos
+// valores, todo píxel de `retro` queda en ≥ 4.82:1 y todo píxel de `neon` en
+// ≥ 5.10:1 contra el #000 de `.game-canvas` (fórmula WCAG de luminancia
+// relativa). `clasico` usa la hoja intacta y congela el aspecto de hoy.
+export type ArkanoidSkin = "clasico" | "retro" | "neon";
+
+type TintKey = BrickKey | "paddle" | "ball";
+
+interface Tint {
+  color: string; // tono del skin: aporta matiz y saturación al resultado
+  floor: string; // gris del piso de luminancia aplicado con `screen`
+}
+
+interface Skin {
+  style: "sprite" | "flat" | "neon";
+  glow: number; // shadowBlur del neón; 0 en los estilos planos
+  brickInset: number; // px de aire entre ladrillos contiguos (0 = sprite tal cual)
+  tints: Record<TintKey, Tint> | null; // null = hoja original, sin recolorear
+}
+
+// Fósforo ámbar: un único matiz para toda la rejilla — la escala de tonos sale
+// de la luminancia propia de cada sprite — más dos ámbares pálidos que separan
+// paleta y bola del muro de ladrillos.
+const RETRO_BRICK: Tint = { color: "#ff9d1c", floor: "#7d7d7d" };
+const RETRO_PADDLE: Tint = { color: "#ffd08a", floor: "#787878" };
+const RETRO_BALL: Tint = { color: "#fff3d6", floor: "#787878" };
+
+const SKINS: Record<ArkanoidSkin, Skin> = {
+  // El spritesheet original, sin tocar un solo píxel.
+  clasico: { style: "sprite", glow: 0, brickInset: 0, tints: null },
+  retro: {
+    style: "flat",
+    glow: 0,
+    brickInset: 1,
+    tints: {
+      red: RETRO_BRICK,
+      yellow: RETRO_BRICK,
+      green: RETRO_BRICK,
+      cyan: RETRO_BRICK,
+      magenta: RETRO_BRICK,
+      hotpink: RETRO_BRICK,
+      gray: RETRO_BRICK,
+      paddle: RETRO_PADDLE,
+      ball: RETRO_BALL,
+    },
+  },
+  // Alto contraste sobre negro: cada pieza conserva su identidad de color, ya
+  // saturada al máximo, y el halo se pinta con su propio tono.
+  neon: {
+    style: "neon",
+    glow: 12,
+    brickInset: 1,
+    tints: {
+      red: { color: "#ff2f6e", floor: "#787878" },
+      yellow: { color: "#ffe600", floor: "#787878" },
+      green: { color: "#00ff85", floor: "#787878" },
+      cyan: { color: "#00f5ff", floor: "#787878" },
+      magenta: { color: "#d14dff", floor: "#7d7d7d" },
+      hotpink: { color: "#ff7ad9", floor: "#7d7d7d" },
+      gray: { color: "#c0d0e0", floor: "#808080" },
+      paddle: { color: "#00f5ff", floor: "#787878" },
+      ball: { color: "#ffffff", floor: "#7d7d7d" },
+    },
+  },
+};
+
+// Regiones de la hoja que se recolorean, cada una con la clave de tinte que le
+// toca. Las cuatro viñetas de explosión de un color son contiguas, así que se
+// tratan como un solo rectángulo de 128x16. `gray` no aparece en la lista de
+// explosiones a propósito: sus viñetas son las mismas de `red` (ver
+// EXPLOSION_FRAMES), y recolorearlas dos veces pisaría el tinte rojo.
+const TINT_REGIONS: { key: TintKey; rect: SpriteRect }[] = [
+  { key: "paddle", rect: SPRITES.paddle },
+  { key: "ball", rect: SPRITES.ball },
+  ...(Object.keys(SPRITES.blocks) as BrickKey[]).map((key) => ({
+    key: key as TintKey,
+    rect: SPRITES.blocks[key],
+  })),
+  ...(Object.keys(EXPLOSION_FRAMES) as BrickKey[])
+    .filter((key) => key !== "gray")
+    .map((key) => {
+      const frames = EXPLOSION_FRAMES[key];
+      const first = frames[0];
+      const last = frames[frames.length - 1];
+      return {
+        key: key as TintKey,
+        rect: {
+          sx: first.sx,
+          sy: first.sy,
+          sw: last.sx + last.sw - first.sx,
+          sh: first.sh,
+        },
+      };
+    }),
+];
+
+// Copia recoloreada de la hoja para un skin concreto. Se llama una sola vez por
+// skin (el resultado se cachea en la instancia del motor).
+function buildSkinSheet(
+  sheet: HTMLImageElement,
+  skin: Skin
+): HTMLCanvasElement | null {
+  const tints = skin.tints;
+  if (!tints) return null;
+
+  const out = document.createElement("canvas");
+  out.width = sheet.naturalWidth || sheet.width;
+  out.height = sheet.naturalHeight || sheet.height;
+  const octx = out.getContext("2d");
+  const tmp = document.createElement("canvas");
+  const tctx = tmp.getContext("2d");
+  if (!octx || !tctx) return null;
+
+  for (const { key, rect } of TINT_REGIONS) {
+    const { sx, sy, sw, sh } = rect;
+    const tint = tints[key];
+
+    // Redimensionar el canvas temporal ya lo limpia y resetea su estado.
+    tmp.width = sw;
+    tmp.height = sh;
+    tctx.drawImage(sheet, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    tctx.globalCompositeOperation = "screen";
+    tctx.fillStyle = tint.floor;
+    tctx.fillRect(0, 0, sw, sh);
+
+    tctx.globalCompositeOperation = "color";
+    tctx.fillStyle = tint.color;
+    tctx.fillRect(0, 0, sw, sh);
+
+    // El relleno anterior cubrió también las zonas transparentes: recorta el
+    // resultado con el alpha del sprite original.
+    tctx.globalCompositeOperation = "destination-in";
+    tctx.drawImage(sheet, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    octx.drawImage(tmp, sx, sy);
+  }
+
+  return out;
+}
 
 interface Paddle {
   x: number;
@@ -151,7 +312,7 @@ interface Brick {
   y: number;
   w: number;
   h: number;
-  color: string;
+  color: BrickKey;
   alive: boolean;
 }
 
@@ -160,7 +321,7 @@ interface Explosion {
   y: number;
   w: number;
   h: number;
-  color: string;
+  color: BrickKey;
   start: number; // ms (performance.now() relativo al bucle)
 }
 
@@ -177,16 +338,23 @@ export interface ArkanoidHandle {
   resume(): void;
   restart(): void;
   end(): void;
+  /** Cambia la paleta en caliente, sin destruir la partida en curso. */
+  setSkin(skin: ArkanoidSkin): void;
   destroy(): void;
 }
 
 export function createArkanoidGame(
   canvas: HTMLCanvasElement,
-  opts: { onState: (s: ArkanoidSnapshot) => void }
+  opts: { onState: (s: ArkanoidSnapshot) => void; skin?: ArkanoidSkin }
 ): ArkanoidHandle {
   const ctx2d = canvas.getContext("2d");
   if (!ctx2d) throw new Error("No se pudo obtener el contexto 2D del canvas.");
   const ctx: CanvasRenderingContext2D = ctx2d;
+
+  // Paleta activa: si falta o no se reconoce el valor, cae en `clasico`.
+  let skinName: ArkanoidSkin =
+    opts.skin && SKINS[opts.skin] ? opts.skin : "clasico";
+  let skin: Skin = SKINS[skinName];
 
   // Estado de partida: encapsulado por completo dentro de la fábrica, para
   // permitir un reinicio limpio y, en teoría, dos instancias simultáneas.
@@ -208,6 +376,9 @@ export function createArkanoidGame(
   // ── Spritesheet ──────────────────────────────────────────────────────────────
   let sheet: HTMLImageElement | null = null;
   let sheetLoaded = false;
+  // Una hoja recoloreada por skin, construida la primera vez que se pide y
+  // reutilizada en todos los frames siguientes.
+  const skinSheets = new Map<ArkanoidSkin, HTMLCanvasElement>();
 
   function loadSpritesheet() {
     const img = new Image();
@@ -218,6 +389,19 @@ export function createArkanoidGame(
     img.src = SPRITESHEET_SRC;
   }
 
+  // Origen de píxeles del skin activo: la hoja original en `clasico`, su copia
+  // recoloreada en el resto.
+  function activeSheet(): CanvasImageSource | null {
+    if (!sheetLoaded || !sheet) return null;
+    if (!skin.tints) return sheet;
+    const cached = skinSheets.get(skinName);
+    if (cached) return cached;
+    const built = buildSkinSheet(sheet, skin);
+    if (!built) return sheet;
+    skinSheets.set(skinName, built);
+    return built;
+  }
+
   function drawSprite(
     rect: SpriteRect,
     x: number,
@@ -225,8 +409,29 @@ export function createArkanoidGame(
     w: number,
     h: number
   ) {
-    if (!sheetLoaded || !sheet) return;
-    ctx.drawImage(sheet, rect.sx, rect.sy, rect.sw, rect.sh, x, y, w, h);
+    const src = activeSheet();
+    if (!src) return;
+    ctx.drawImage(src, rect.sx, rect.sy, rect.sw, rect.sh, x, y, w, h);
+  }
+
+  // En `neon` el sprite se pinta dos veces: primero con el halo de su propio
+  // tono y después, sin sombra, encima. El glow nunca sustituye al relleno —
+  // con shadowBlur en 0 la forma se sigue leyendo igual.
+  function drawSpriteSkinned(
+    rect: SpriteRect,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    key: TintKey
+  ) {
+    if (skin.style === "neon" && skin.tints) {
+      ctx.shadowColor = skin.tints[key].color;
+      ctx.shadowBlur = skin.glow;
+      drawSprite(rect, x, y, w, h);
+      ctx.shadowBlur = 0;
+    }
+    drawSprite(rect, x, y, w, h);
   }
 
   // ── Construcción de nivel/partida ─────────────────────────────────────────────
@@ -488,10 +693,23 @@ export function createArkanoidGame(
   function draw(now: number) {
     ctx.clearRect(0, 0, GAME_W, GAME_H);
 
+    // Los ladrillos se tocan entre sí: en los skins recoloreados se recortan un
+    // píxel por lado para que el negro del fondo haga de junta dura entre ellos
+    // (en `clasico` el hueco lo daba el contorno oscuro del propio sprite).
+    const inset = skin.brickInset;
     for (const brick of bricks) {
       if (!brick.alive) continue;
       const rect = SPRITES.blocks[brick.color];
-      if (rect) drawSprite(rect, brick.x, brick.y, brick.w, brick.h);
+      if (rect) {
+        drawSpriteSkinned(
+          rect,
+          brick.x + inset,
+          brick.y + inset,
+          brick.w - inset * 2,
+          brick.h - inset * 2,
+          brick.color
+        );
+      }
     }
 
     const frameDuration = EXPLOSION_DURATION / 4;
@@ -500,23 +718,36 @@ export function createArkanoidGame(
       idx = Math.max(0, Math.min(3, idx));
       const frames = EXPLOSION_FRAMES[explosion.color];
       if (frames) {
-        drawSprite(
+        // Las viñetas de `gray` son las de `red`, así que su halo usa el tinte
+        // rojo del skin: el que de verdad tienen los píxeles recoloreados.
+        const glowKey: TintKey =
+          explosion.color === "gray" ? "red" : explosion.color;
+        drawSpriteSkinned(
           frames[idx],
           explosion.x,
           explosion.y,
           explosion.w,
-          explosion.h
+          explosion.h,
+          glowKey
         );
       }
     }
 
-    drawSprite(SPRITES.paddle, paddle.x, paddle.y, paddle.w, paddle.h);
-    drawSprite(
+    drawSpriteSkinned(
+      SPRITES.paddle,
+      paddle.x,
+      paddle.y,
+      paddle.w,
+      paddle.h,
+      "paddle"
+    );
+    drawSpriteSkinned(
       SPRITES.ball,
       ball.x - ball.r,
       ball.y - ball.r,
       ball.r * 2,
-      ball.r * 2
+      ball.r * 2,
+      "ball"
     );
   }
 
@@ -557,6 +788,14 @@ export function createArkanoidGame(
     end() {
       phase = "lost";
       emitState();
+    },
+    // Reemplaza la paleta en caliente: el siguiente frame ya se pinta con el
+    // skin nuevo y la partida en curso sigue intacta.
+    setSkin(next: ArkanoidSkin) {
+      skinName = SKINS[next] ? next : "clasico";
+      skin = SKINS[skinName];
+      // En pausa no hay bucle que repinte: refresca el frame actual a mano.
+      if (rafId === null) draw(performance.now());
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);

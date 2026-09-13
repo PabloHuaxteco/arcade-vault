@@ -58,6 +58,92 @@ const FRUIT_TYPES = Object.keys(FRUIT_ATLAS);
 
 const FRUITSHEET_SRC = "/games/snake/fruits.png";
 
+// ── Skins ─────────────────────────────────────────────────────────────────────
+// Tres paletas verificadas contra el #000 real de .game-canvas (ratio WCAG
+// ≥ 4.5:1). `clasico` congela el aspecto vigente del juego sin alterar un solo
+// dígito; `retro` es fósforo ámbar plano de bordes duros; `neon` es alto
+// contraste con glow del propio trazo y brillo interior.
+export type SnakeSkin = "clasico" | "retro" | "neon";
+
+// Recoloreado del spritesheet de frutas: se compone una vez por skin sobre un
+// canvas offscreen (nunca por frame) y se cachea. `filter` aplana la hoja a gris
+// con el suelo de luminancia necesario para superar 4.5:1 tras el multiply.
+interface FruitTint {
+  color: string;
+  filter: string;
+}
+
+interface Skin {
+  style: "flat" | "neon";
+  glow: number; // shadowBlur en px; 0 = sin sombra, bordes duros
+  fruitTint: FruitTint | null; // null = spritesheet original, sin tocar
+  colors: {
+    head: string;
+    body: string;
+    edge: string | null; // contorno duro del segmento; null = sin contorno
+    deathOn: string; // fotograma encendido del parpadeo de muerte
+    deathOff: string; // fotograma apagado (por diseño, por debajo del umbral)
+    glowAlive: string | null; // null = el glow toma el color del propio trazo
+    glowDead: string | null;
+  };
+}
+
+const SKINS: Record<SnakeSkin, Skin> = {
+  // Valores calcados del motor original, sin alterar un solo dígito.
+  clasico: {
+    style: "flat",
+    glow: 12,
+    fruitTint: null,
+    colors: {
+      head: "#9dffb0",
+      body: "#22c55e",
+      edge: null,
+      deathOn: "#ff2d55",
+      deathOff: "#0f2f16",
+      glowAlive: "#39ff6a",
+      glowDead: "#ff2d55",
+    },
+  },
+  // Fósforo ámbar: cuatro tonos de una misma familia, sin shadowBlur y con
+  // contorno duro que separa los segmentos como un CRT monocromo.
+  retro: {
+    style: "flat",
+    glow: 0,
+    fruitTint: {
+      color: "#ffb000",
+      filter: "grayscale(1) contrast(0.35) brightness(2.1)",
+    },
+    colors: {
+      head: "#ffe3a3",
+      body: "#f5a623",
+      edge: "#c07a12",
+      deathOn: "#ff7a18",
+      deathOff: "#5a2c00",
+      glowAlive: null,
+      glowDead: null,
+    },
+  },
+  // Alto contraste sobre negro: cabeza cian, cuerpo magenta, fruta lima. El
+  // glow nunca sustituye al relleno — con shadowBlur 0 la forma sigue leyéndose.
+  neon: {
+    style: "neon",
+    glow: 14,
+    fruitTint: {
+      color: "#f7ff4d",
+      filter: "grayscale(1) contrast(0.5) brightness(2)",
+    },
+    colors: {
+      head: "#66fff5",
+      body: "#ff2fb3",
+      edge: null,
+      deathOn: "#ff5e5e",
+      deathOff: "#320a24",
+      glowAlive: null, // usa el color del propio segmento
+      glowDead: null,
+    },
+  },
+};
+
 interface Cell {
   x: number;
   y: number;
@@ -105,16 +191,23 @@ export interface SnakeHandle {
   resume(): void;
   restart(): void;
   end(): void;
+  /** Cambia la paleta en caliente, sin destruir la partida en curso. */
+  setSkin(skin: SnakeSkin): void;
   destroy(): void;
 }
 
 export function createSnakeGame(
   canvas: HTMLCanvasElement,
-  opts: { onState: (s: SnakeSnapshot) => void }
+  opts: { onState: (s: SnakeSnapshot) => void; skin?: SnakeSkin }
 ): SnakeHandle {
   const ctx2d = canvas.getContext("2d");
   if (!ctx2d) throw new Error("No se pudo obtener el contexto 2D del canvas.");
   const ctx: CanvasRenderingContext2D = ctx2d;
+
+  // Paleta activa: si falta o no se reconoce el valor, cae en `clasico`.
+  let skinName: SnakeSkin =
+    opts.skin && SKINS[opts.skin] ? opts.skin : "clasico";
+  let skin: Skin = SKINS[skinName];
 
   // Estado de partida: encapsulado por completo dentro de la fábrica, para
   // permitir un reinicio limpio y, en teoría, dos instancias simultáneas.
@@ -139,13 +232,53 @@ export function createSnakeGame(
   let sheet: HTMLImageElement | null = null;
   let sheetLoaded = false;
 
+  // Hojas recoloreadas por skin: se construyen una sola vez, bajo demanda, y
+  // nunca dentro del bucle de dibujo.
+  const tintedSheets = new Map<SnakeSkin, CanvasImageSource>();
+
   function loadSpritesheet() {
     const img = new Image();
     img.onload = () => {
       sheet = img;
       sheetLoaded = true;
+      tintedSheets.clear();
     };
     img.src = FRUITSHEET_SRC;
+  }
+
+  // Recolorea la hoja de frutas al tono del skin: gris con suelo de luminancia
+  // (ctx.filter) + multiply del tono + destination-in para recuperar el alfa
+  // original. Si el navegador no soporta ctx.filter, cae en la hoja sin tocar.
+  function buildTintedSheet(
+    img: HTMLImageElement,
+    tint: FruitTint
+  ): CanvasImageSource {
+    const off = document.createElement("canvas");
+    off.width = img.naturalWidth;
+    off.height = img.naturalHeight;
+    const octx = off.getContext("2d");
+    if (!octx || !("filter" in octx)) return img;
+    octx.filter = tint.filter;
+    octx.drawImage(img, 0, 0);
+    octx.filter = "none";
+    octx.globalCompositeOperation = "multiply";
+    octx.fillStyle = tint.color;
+    octx.fillRect(0, 0, off.width, off.height);
+    octx.globalCompositeOperation = "destination-in";
+    octx.drawImage(img, 0, 0);
+    octx.globalCompositeOperation = "source-over";
+    return off;
+  }
+
+  function fruitSource(): CanvasImageSource | null {
+    if (!sheetLoaded || !sheet) return null;
+    const tint = skin.fruitTint;
+    if (!tint) return sheet;
+    const cached = tintedSheets.get(skinName);
+    if (cached) return cached;
+    const built = buildTintedSheet(sheet, tint);
+    tintedSheets.set(skinName, built);
+    return built;
   }
 
   // ── Construcción de partida ────────────────────────────────────────────────
@@ -291,34 +424,66 @@ export function createSnakeGame(
 
   // ── Dibujo ─────────────────────────────────────────────────────────────────
   function drawFruit() {
+    const source = fruitSource();
+    if (!source) return;
     const rect = FRUIT_ATLAS[fruit.type];
     const dx = fruit.pos.x * CELL;
     const dy = fruit.pos.y * CELL;
-    if (sheetLoaded && sheet) {
-      ctx.drawImage(sheet, rect.x, rect.y, rect.w, rect.h, dx, dy, CELL, CELL);
+    ctx.save();
+    if (skin.style === "neon" && skin.fruitTint) {
+      ctx.shadowBlur = skin.glow;
+      ctx.shadowColor = skin.fruitTint.color;
     }
+    ctx.drawImage(source, rect.x, rect.y, rect.w, rect.h, dx, dy, CELL, CELL);
+    ctx.restore();
   }
 
   function drawSnake() {
     const margin = 2;
+    const c = skin.colors;
+    const dying = phase === "dying";
+    const blinkOn = Math.floor(dyingElapsedMs / 100) % 2 === 0;
+    const size = CELL - margin * 2;
+
     segments.forEach((seg, i) => {
       const isHead = i === 0;
+      const fill = dying
+        ? blinkOn
+          ? c.deathOn
+          : c.deathOff
+        : isHead
+          ? c.head
+          : c.body;
+      const x = seg.x * CELL + margin;
+      const y = seg.y * CELL + margin;
+
       ctx.save();
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = phase === "dying" ? "#ff2d55" : "#39ff6a";
-      if (phase === "dying") {
-        const blinkOn = Math.floor(dyingElapsedMs / 100) % 2 === 0;
-        ctx.fillStyle = blinkOn ? "#ff2d55" : "#0f2f16";
-      } else {
-        ctx.fillStyle = isHead ? "#9dffb0" : "#22c55e";
+      if (skin.glow > 0) {
+        ctx.shadowBlur = skin.glow;
+        // En `neon` el glow sale del propio trazo; en `clasico`, de un color fijo.
+        ctx.shadowColor = dying ? (c.glowDead ?? fill) : (c.glowAlive ?? fill);
       }
-      ctx.fillRect(
-        seg.x * CELL + margin,
-        seg.y * CELL + margin,
-        CELL - margin * 2,
-        CELL - margin * 2
-      );
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, size, size);
       ctx.restore();
+
+      // Bordes duros del fósforo CRT: contorno plano, nunca sombra.
+      if (c.edge) {
+        ctx.save();
+        ctx.strokeStyle = c.edge;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
+        ctx.restore();
+      }
+
+      // Brillo interior del skin neon: se compone sobre el relleno, así que la
+      // forma se sigue leyendo aunque shadowBlur sea 0.
+      if (skin.style === "neon" && !dying) {
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.fillRect(x + size * 0.3, y + size * 0.3, size * 0.4, size * 0.4);
+        ctx.restore();
+      }
     });
   }
 
@@ -366,6 +531,14 @@ export function createSnakeGame(
     end() {
       phase = "over";
       emitState();
+    },
+    // Reemplaza la paleta en caliente: el siguiente frame ya se pinta con el
+    // skin nuevo y la partida en curso sigue intacta.
+    setSkin(next: SnakeSkin) {
+      skinName = SKINS[next] ? next : "clasico";
+      skin = SKINS[skinName];
+      // En pausa no hay bucle que repinte: refresca el frame actual a mano.
+      if (rafId === null) draw();
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);
