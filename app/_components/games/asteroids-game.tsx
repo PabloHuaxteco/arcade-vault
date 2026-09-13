@@ -16,6 +16,14 @@ import {
 } from "@/lib/games/asteroids/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+import { TouchControls } from "./touch-controls";
+
+const DPAD = [
+  { code: "ArrowLeft", label: "◀" },
+  { code: "ArrowRight", label: "▶" },
+  { code: "ArrowUp", label: "▲" },
+];
+const ACTIONS = [{ code: "Space", label: "DISPARAR" }];
 
 const SKIN_STORAGE_KEY = "av_asteroids_skin";
 const SKIN_OPTIONS: { value: AsteroidsSkin; label: string }[] = [
@@ -217,6 +225,13 @@ export function AsteroidsGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      <TouchControls
+        dpad={DPAD}
+        actions={ACTIONS}
+        onPress={(code) => handleRef.current?.press(code)}
+        onRelease={(code) => handleRef.current?.release(code)}
+      />
 
       {snapshot.over && (
         <div className="modal-bd">
