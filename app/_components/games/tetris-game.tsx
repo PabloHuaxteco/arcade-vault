@@ -16,6 +16,17 @@ import {
 } from "@/lib/games/tetris/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+import { TouchControls } from "./touch-controls";
+
+const DPAD = [
+  { code: "ArrowLeft", label: "◀" },
+  { code: "ArrowRight", label: "▶" },
+  { code: "ArrowDown", label: "▼" },
+];
+const ACTIONS = [
+  { code: "ArrowUp", label: "GIRAR" },
+  { code: "Space", label: "CAÍDA RÁPIDA" },
+];
 
 const SKIN_STORAGE_KEY = "av_tetris_skin";
 const SKIN_OPTIONS: { value: TetrisSkin; label: string }[] = [
@@ -220,6 +231,13 @@ export function TetrisGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      <TouchControls
+        dpad={DPAD}
+        actions={ACTIONS}
+        onPress={(code) => handleRef.current?.press(code)}
+        onRelease={(code) => handleRef.current?.release(code)}
+      />
 
       {snapshot.over && (
         <div className="modal-bd">

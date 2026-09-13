@@ -16,6 +16,14 @@ import {
 } from "@/lib/games/snake/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+import { TouchControls } from "./touch-controls";
+
+const DPAD = [
+  { code: "ArrowUp", label: "▲" },
+  { code: "ArrowLeft", label: "◀" },
+  { code: "ArrowDown", label: "▼" },
+  { code: "ArrowRight", label: "▶" },
+];
 
 const SKIN_STORAGE_KEY = "av_snake_skin";
 const SKIN_OPTIONS: { value: SnakeSkin; label: string }[] = [
@@ -214,6 +222,13 @@ export function SnakeGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      <TouchControls
+        dpad={DPAD}
+        actions={[]}
+        onPress={(code) => handleRef.current?.press(code)}
+        onRelease={(code) => handleRef.current?.release(code)}
+      />
 
       {snapshot.over && (
         <div className="modal-bd">

@@ -504,6 +504,10 @@ export interface AsteroidsHandle {
   end(): void;
   /** Cambia la paleta en caliente, sin destruir la partida en curso. */
   setSkin(skin: AsteroidsSkin): void;
+  /** Equivalente táctil de un keydown: mismo camino que handleKeyDown. */
+  press(code: string): void;
+  /** Equivalente táctil de un keyup: mismo camino que handleKeyUp. */
+  release(code: string): void;
   destroy(): void;
 }
 
@@ -556,9 +560,17 @@ export function createAsteroidsGame(
     return val;
   }
 
+  function setKeyDown(code: string) {
+    justPressed[code] = !keys[code];
+    keys[code] = true;
+  }
+
+  function setKeyUp(code: string) {
+    keys[code] = false;
+  }
+
   function handleKeyDown(e: KeyboardEvent) {
-    justPressed[e.code] = !keys[e.code];
-    keys[e.code] = true;
+    setKeyDown(e.code);
     // Solo bloquea el scroll de la página mientras la partida está activa;
     // nunca en pausa ni en 'gameover'.
     if (
@@ -570,7 +582,7 @@ export function createAsteroidsGame(
   }
 
   function handleKeyUp(e: KeyboardEvent) {
-    keys[e.code] = false;
+    setKeyUp(e.code);
   }
 
   function spawnAsteroids(count: number) {
@@ -851,6 +863,12 @@ export function createAsteroidsGame(
       skin = SKINS[next] ?? SKINS.clasico;
       // En pausa no hay bucle que repinte: refresca el frame actual a mano.
       if (rafId === null) draw();
+    },
+    press(code: string) {
+      setKeyDown(code);
+    },
+    release(code: string) {
+      setKeyUp(code);
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);
