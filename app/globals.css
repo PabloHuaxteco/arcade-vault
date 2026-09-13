@@ -1164,6 +1164,85 @@ a {
   box-shadow: 0 0 6px var(--green);
 }
 
+/* ===== touch controls (SPEC 10) ===== */
+/* Oculta por defecto: solo aparece cuando el input primario del dispositivo
+   es táctil/impreciso. Sin JS de detección para no arriesgar un mismatch de
+   hidratación entre servidor y cliente. */
+.touch-controls {
+  display: none;
+  margin-top: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: calc(max(360px, 100dvh - var(--player-chrome)) * 4 / 3 + 48px);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+@media (pointer: coarse) {
+  .touch-controls {
+    display: flex;
+  }
+}
+.touch-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(2, 44px);
+  gap: 6px;
+}
+.touch-dpad-ArrowUp {
+  grid-column: 2;
+  grid-row: 1;
+}
+.touch-dpad-ArrowLeft {
+  grid-column: 1;
+  grid-row: 2;
+}
+.touch-dpad-ArrowDown {
+  grid-column: 2;
+  grid-row: 2;
+}
+.touch-dpad-ArrowRight {
+  grid-column: 3;
+  grid-row: 2;
+}
+.touch-actions {
+  display: flex;
+  gap: 10px;
+}
+.touch-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--pixel);
+  font-size: 14px;
+  background: var(--bg-2);
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  border-radius: 8px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+.touch-btn:active {
+  background: rgba(0, 245, 255, 0.25);
+}
+.touch-action-btn {
+  width: auto;
+  min-width: 64px;
+  padding: 0 14px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  border-color: var(--magenta);
+  color: var(--magenta);
+}
+.touch-action-btn:active {
+  background: rgba(255, 0, 110, 0.25);
+}
+
 /* fake in-screen game */
 .game-arena {
   position: absolute;
