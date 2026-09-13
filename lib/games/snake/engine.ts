@@ -193,6 +193,10 @@ export interface SnakeHandle {
   end(): void;
   /** Cambia la paleta en caliente, sin destruir la partida en curso. */
   setSkin(skin: SnakeSkin): void;
+  /** Equivalente táctil de un keydown: cambia de dirección una vez. */
+  press(code: string): void;
+  /** Snake no reacciona a keyup: no-op, igual que con teclado físico. */
+  release(code: string): void;
   destroy(): void;
 }
 
@@ -354,13 +358,19 @@ export function createSnakeGame(
     pendingDirection = dir;
   }
 
+  function runDirection(code: string) {
+    const dir = KEY_TO_DIRECTION[code];
+    if (!dir) return;
+    if (paused || phase !== "playing") return;
+    setPendingDirection(dir);
+  }
+
   function handleKeyDown(e: KeyboardEvent) {
     const dir = KEY_TO_DIRECTION[e.key];
     if (!dir) return;
     const active = !paused && (phase === "playing" || phase === "dying");
     if (active) e.preventDefault();
-    if (paused || phase !== "playing") return;
-    setPendingDirection(dir);
+    runDirection(e.key);
   }
 
   // ── Tick de grid ─────────────────────────────────────────────────────────────
@@ -539,6 +549,12 @@ export function createSnakeGame(
       skin = SKINS[skinName];
       // En pausa no hay bucle que repinte: refresca el frame actual a mano.
       if (rafId === null) draw();
+    },
+    press(code: string) {
+      runDirection(code);
+    },
+    release() {
+      // no-op: Snake no reacciona a keyup, igual que con teclado físico.
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);
