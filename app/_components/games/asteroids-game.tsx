@@ -11,10 +11,18 @@ import type { Game } from "@/lib/games";
 import {
   createAsteroidsGame,
   type AsteroidsHandle,
+  type AsteroidsSkin,
   type AsteroidsSnapshot,
 } from "@/lib/games/asteroids/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+
+const SKIN_STORAGE_KEY = "av_asteroids_skin";
+const SKIN_OPTIONS: { value: AsteroidsSkin; label: string }[] = [
+  { value: "clasico", label: "Clásico" },
+  { value: "retro", label: "Retro" },
+  { value: "neon", label: "Neon" },
+];
 
 const INITIAL_SNAPSHOT: AsteroidsSnapshot = {
   score: 0,
@@ -29,7 +37,9 @@ export function AsteroidsGame({ game }: { game: Game }) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<AsteroidsHandle | null>(null);
+  const skinRef = useRef<AsteroidsSkin>("clasico");
 
+  const [skin, setSkin] = useState<AsteroidsSkin>("clasico");
   const [snapshot, setSnapshot] = useState<AsteroidsSnapshot>(INITIAL_SNAPSHOT);
   const [paused, setPaused] = useState(false);
   const [name, setName] = useState("INVITADO");
@@ -37,6 +47,19 @@ export function AsteroidsGame({ game }: { game: Game }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // La preferencia de skin vive en localStorage, local al navegador (no en
+  // Supabase); se lee tras el montaje para no romper el render de servidor.
+  useEffect(() => {
+    const savedSkin = window.localStorage.getItem(SKIN_STORAGE_KEY);
+    if (
+      savedSkin === "clasico" ||
+      savedSkin === "retro" ||
+      savedSkin === "neon"
+    ) {
+      setSkin(savedSkin);
+    }
+  }, []);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
@@ -51,10 +74,15 @@ export function AsteroidsGame({ game }: { game: Game }) {
     }
   }, [snapshot.over, name]);
 
+  // El motor se crea una sola vez: `skin` NO es dependencia de este efecto.
+  // El skin inicial se lee del ref para no recrear la instancia al cambiarlo.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const handle = createAsteroidsGame(canvas, { onState: setSnapshot });
+    const handle = createAsteroidsGame(canvas, {
+      onState: setSnapshot,
+      skin: skinRef.current,
+    });
     handleRef.current = handle;
     handle.start();
     return () => {
@@ -62,6 +90,13 @@ export function AsteroidsGame({ game }: { game: Game }) {
       handleRef.current = null;
     };
   }, []);
+
+  // Cambiar de skin sustituye la paleta en caliente (AsteroidsHandle.setSkin):
+  // la partida en curso sobrevive al cambio.
+  useEffect(() => {
+    skinRef.current = skin;
+    handleRef.current?.setSkin(skin);
+  }, [skin]);
 
   const togglePause = useCallback(() => {
     const handle = handleRef.current;
@@ -81,6 +116,12 @@ export function AsteroidsGame({ game }: { game: Game }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
+
+  const handleSkinChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as AsteroidsSkin;
+    window.localStorage.setItem(SKIN_STORAGE_KEY, value);
+    setSkin(value);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -130,6 +171,16 @@ export function AsteroidsGame({ game }: { game: Game }) {
           <div className="hud-stat level">
             <div className="l">Nivel</div>
             <div className="v">{String(snapshot.level).padStart(2, "0")}</div>
+          </div>
+          <div className="hud-stat">
+            <div className="l">Skin</div>
+            <select value={skin} onChange={handleSkinChange}>
+              {SKIN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="hud-actions">
