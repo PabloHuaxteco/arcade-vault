@@ -340,6 +340,10 @@ export interface ArkanoidHandle {
   end(): void;
   /** Cambia la paleta en caliente, sin destruir la partida en curso. */
   setSkin(skin: ArkanoidSkin): void;
+  /** Equivalente táctil de un keydown: mismo camino que handleKeyDown. */
+  press(code: string): void;
+  /** Equivalente táctil de un keyup: mismo camino que handleKeyUp. */
+  release(code: string): void;
   destroy(): void;
 }
 
@@ -796,6 +800,13 @@ export function createArkanoidGame(
       skin = SKINS[skinName];
       // En pausa no hay bucle que repinte: refresca el frame actual a mano.
       if (rafId === null) draw(performance.now());
+    },
+    press(code: string) {
+      setKey(code, true);
+      if (code === "Space") launchBall();
+    },
+    release(code: string) {
+      setKey(code, false);
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);
