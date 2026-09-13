@@ -1,6 +1,6 @@
 # SPEC 10 — Controles táctiles para los 4 juegos existentes
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 05, SPEC 07, SPEC 08, SPEC 09
 > **Fecha:** 2026-09-13
 > **Objetivo:** Añadir una barra de controles táctiles (D-pad + botones de acción) debajo del canvas de los 4 motores existentes (`asteroids`, `tetris`, `arkanoid`, `snake`), visible solo en dispositivos con puntero táctil, reutilizando el estado de teclado que ya tiene cada motor.
