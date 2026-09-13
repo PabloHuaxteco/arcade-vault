@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Agents
 
 - `game-planner` (`.claude/agents/game-planner.md`) — decide qué juego construir después. Analiza el catálogo real (`lib/games.ts`, `references/implemented-games.md`), las restricciones técnicas de la plataforma (`.claude/skills/spec-game/contrato-plataforma.md`) y su propia memoria persistente en `references/game-suggestions-todo.md`, y devuelve 1-3 candidatos razonados con veredicto. No escribe specs ni código: el siguiente paso es correr `/spec-game` con la recomendación elegida.
+- `game-jam` (`.claude/agents/game-jam.md`) — convierte un tema libre ("fondo marino", "circo abandonado") en un juego nuevo diseñado desde cero para Arcade Vault. Lee el estado real de la plataforma (`CLAUDE.md`/`AGENTS.md`, el contrato de `spec-game`, el template de `spec`, `specs/09-juego-snake.md` como modelo, `lib/games.ts`, `references/implemented-games.md` y, solo en lectura, `references/game-suggestions-todo.md`) y escribe dos specs borrador en `specs/game-jam/<game-id>/` — `01-<game-id>-mvp.md` (motor jugable + leaderboard Supabase) y `02-<game-id>-extension.md` (mecánicas cortadas del MVP). Es autónomo: nunca pregunta, nunca escribe código de juego, y estas specs viven fuera de la numeración global `specs/NN-*.md` hasta que se promueven o aprueban explícitamente. El siguiente paso tras su entrega es `/spec-impl`.
 
 ## Architecture
 
