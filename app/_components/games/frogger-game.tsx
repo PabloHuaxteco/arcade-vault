@@ -13,6 +13,7 @@ import {
   type FroggerHandle,
   type FroggerSnapshot,
 } from "@/lib/games/frogger/engine";
+import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
 
 const INITIAL_SNAPSHOT: FroggerSnapshot = {
@@ -37,12 +38,23 @@ export function FroggerGame({ game }: { game: Game }) {
   const [snapshot, setSnapshot] = useState<FroggerSnapshot>(INITIAL_SNAPSHOT);
   const [paused, setPaused] = useState(false);
   const [name, setName] = useState("INVITADO");
+  const [initials, setInitials] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
   useEffect(() => {
     if (user) setName(user.name);
   }, [user]);
+
+  // Al terminar la partida, prellenar las iniciales con el nombre de sesión.
+  useEffect(() => {
+    if (snapshot.over) {
+      setInitials((prev) => prev || name.toUpperCase().slice(0, 10));
+    }
+  }, [snapshot.over, name]);
 
   const togglePause = useCallback(() => {
     const handle = handleRef.current;
@@ -74,6 +86,31 @@ export function FroggerGame({ game }: { game: Game }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await insertScore({
+        gameId: game.id,
+        name: initials,
+        score: snapshot.score,
+      });
+      setSaved(true);
+    } catch {
+      setSaveError("No se pudo guardar la puntuación. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePlayAgain = () => {
+    handleRef.current?.restart();
+    setPaused(false);
+    setSaved(false);
+    setSaveError(null);
+    setInitials("");
+  };
 
   return (
     <div className="av-player fade-in">
@@ -126,6 +163,66 @@ export function FroggerGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      {snapshot.over && (
+        <div className="modal-bd">
+          <div className="modal">
+            <h2>FIN DEL JUEGO</h2>
+            <div className="final-label">PUNTUACIÓN FINAL</div>
+            <div className="final">
+              {snapshot.score.toLocaleString("es-ES")}
+            </div>
+            {!saved ? (
+              <div
+                className="input-row"
+                style={{
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                  gap: 8,
+                }}
+              >
+                <div className="input-row">
+                  <input
+                    value={initials}
+                    onChange={(e) =>
+                      setInitials(e.target.value.toUpperCase().slice(0, 10))
+                    }
+                    placeholder="TUS INICIALES"
+                  />
+                  <button
+                    className="btn yellow"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? "GUARDANDO…" : "GUARDAR PUNTUACIÓN"}
+                  </button>
+                </div>
+                {saveError && (
+                  <div
+                    className="toast-saved"
+                    style={{ color: "var(--magenta, #ff2fb3)" }}
+                  >
+                    ▸ {saveError}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
+            )}
+            <div className="actions">
+              <button className="btn" onClick={handlePlayAgain}>
+                JUGAR DE NUEVO
+              </button>
+              <button
+                className="btn magenta"
+                onClick={() => router.push("/biblioteca")}
+              >
+                VOLVER AL VAULT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
