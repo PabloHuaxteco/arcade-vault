@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `/spec` — diseña specs de features generales de la plataforma.
   - `/spec-game` — diseña specs específicamente para nuevos juegos jugables (motor + leaderboard Supabase), portando una carpeta de `references/started-games/` o diseñando desde cero. Nunca escribe código de juego, solo la spec.
   - `/spec-impl` — implementa una spec ya aprobada.
+  - `/spec-impl-game` — implementa una spec de juego ya aprobada exactamente igual que `/spec-impl` (Fases 1-4 idénticas, incluyendo specs bajo `specs/game-jam/<game-id>/`) y, solo si termina todos los pasos del plan, encadena en la Fase 5 `skin-designer` y luego `mobile-porter` sobre el juego recién implementado — secuencial, nunca en paralelo, y siempre con confirmación explícita antes de lanzarlos.
   - Las specs numeradas viven en `specs/NN-*.md` con estado (`Implementado`/`Aprobado`/etc.) en el encabezado; consúltalas antes de tocar el área que cubren.
 
 ## Agents
