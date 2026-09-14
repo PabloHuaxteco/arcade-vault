@@ -1,6 +1,6 @@
 # GAME JAM — SALTA CHARCOS (MVP)
 
-> **Estado:** Borrador
+> **Estado:** Aprobado
 > **Tema:** ranaria — un juego estilo Frogger-like (cruzar un camino/río esquivando obstáculos)
 > **Depende de:** SPEC 05, SPEC 06
 > **Fecha:** 2026-09-12
