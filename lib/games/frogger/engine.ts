@@ -215,6 +215,11 @@ export function createFroggerGame(
 
   let dyingElapsedMs: number;
 
+  // Reloj del cruce, fila máxima de la vida actual y nichos ocupados en la ronda.
+  let crossTimer: number;
+  let bestRow: number;
+  let occupiedNests: Set<number>;
+
   let lastTime: number | null = null;
   let rafId: number | null = null;
   let lastSnapshot: FroggerSnapshot | null = null;
@@ -230,6 +235,9 @@ export function createFroggerGame(
     hopping = false;
     hopElapsedMs = 0;
     dyingElapsedMs = 0;
+    crossTimer = CROSS_TIME_S;
+    bestRow = START_ROW;
+    occupiedNests = new Set();
     LANES.forEach((l, i) => {
       laneOffsets[i] = l.offset;
     });
@@ -335,6 +343,33 @@ export function createFroggerGame(
     emitState();
   }
 
+  // Se llama justo cuando un salto termina, con `frog` ya en la celda destino.
+  function handleLanding() {
+    if (frog.row === NEST_ROW) {
+      if (NEST_COLS.includes(frog.col) && !occupiedNests.has(frog.col)) {
+        occupiedNests.add(frog.col);
+        score += POINTS_NEST + Math.floor(crossTimer) * POINTS_PER_TIME_SECOND;
+        frog = { col: START_COL, row: START_ROW, px: 0 };
+        crossTimer = CROSS_TIME_S;
+        if (occupiedNests.size >= NEST_COLS.length) {
+          score += POINTS_ROUND;
+          round += 1;
+          occupiedNests.clear();
+          speedMult = Math.min(MAX_SPEED_MULT, speedMult + ROUND_SPEED_STEP);
+        }
+        emitState();
+      } else {
+        triggerDeath();
+      }
+      return;
+    }
+    if (frog.row < bestRow) {
+      bestRow = frog.row;
+      score += POINTS_ROW;
+      emitState();
+    }
+  }
+
   function checkHazards(dt: number) {
     if (ROAD_ROWS.includes(frog.row)) {
       if (checkRoadCollision()) triggerDeath();
@@ -398,6 +433,8 @@ export function createFroggerGame(
           phase = "playing";
           frog = { col: START_COL, row: START_ROW, px: 0 };
           hopping = false;
+          crossTimer = CROSS_TIME_S;
+          bestRow = START_ROW;
         }
         emitState();
       }
@@ -405,12 +442,20 @@ export function createFroggerGame(
     }
 
     // phase === "playing"
+    crossTimer -= dt;
+    if (crossTimer <= 0) {
+      crossTimer = 0;
+      triggerDeath();
+      return;
+    }
+
     if (hopping) {
       hopElapsedMs += dt * 1000;
       if (hopElapsedMs >= HOP_MS) {
         frog = { col: hopTo.col, row: hopTo.row, px: 0 };
         hopping = false;
         hopElapsedMs = 0;
+        handleLanding();
       }
       return;
     }
@@ -424,8 +469,19 @@ export function createFroggerGame(
     ctx.fillStyle = "#0f2f16";
     ctx.fillRect(0, NEST_ROW * CELL, GAME_W, CELL);
     for (const col of NEST_COLS) {
+      const x = col * CELL;
+      const y = NEST_ROW * CELL;
       ctx.fillStyle = "#123a1b";
-      ctx.fillRect(col * CELL + 4, NEST_ROW * CELL + 4, CELL - 8, CELL - 8);
+      ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
+      if (occupiedNests.has(col)) {
+        // Nicho ocupado: rana apagada, sin brillo.
+        ctx.fillStyle = "#2f6b3c";
+        ctx.fillRect(x + 14, y + 14, CELL - 28, CELL - 28);
+      } else {
+        // Nicho libre: hueco con brillo.
+        ctx.fillStyle = "#1d5a2a";
+        ctx.fillRect(x + 10, y + 10, CELL - 20, CELL - 20);
+      }
     }
 
     // Río (filas 1-4).
@@ -497,11 +553,22 @@ export function createFroggerGame(
     ctx.restore();
   }
 
+  function drawClockBar() {
+    const frac = Math.max(0, crossTimer / CROSS_TIME_S);
+    ctx.save();
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, GAME_W, 6);
+    ctx.fillStyle = frac > 0.3 ? "#ffdd55" : "#ff4d4d";
+    ctx.fillRect(0, 0, GAME_W * frac, 6);
+    ctx.restore();
+  }
+
   function draw() {
     ctx.clearRect(0, 0, GAME_W, GAME_H);
     drawZones();
     drawLaneElements();
     drawFrog();
+    drawClockBar();
   }
 
   // ── Bucle principal ──────────────────────────────────────────────────────────
