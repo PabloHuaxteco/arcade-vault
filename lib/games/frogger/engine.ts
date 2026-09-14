@@ -26,6 +26,7 @@ const POINTS_PER_TIME_SECOND = 10;
 const POINTS_ROUND = 500;
 const ROUND_SPEED_STEP = 0.12;
 const MAX_SPEED_MULT = 2.2;
+const COLLISION_TOLERANCE = 4; // px por lado, para que el borde exacto no mate
 
 // ── Disposición del tablero ──────────────────────────────────────────────────
 // fila 0 = orilla de nidos, filas 1-4 = río, fila 5 = mediana segura,
@@ -133,6 +134,9 @@ const LANES: readonly Lane[] = [
   },
 ];
 
+const LANE_BY_ROW = new Map<number, { lane: Lane; index: number }>();
+LANES.forEach((lane, index) => LANE_BY_ROW.set(lane.row, { lane, index }));
+
 type Phase = "playing" | "dying" | "over";
 
 interface FrogPos {
@@ -140,6 +144,34 @@ interface FrogPos {
   row: number;
   px: number; // desplazamiento horizontal respecto al centro de la celda (sobre un tronco)
 }
+
+interface GridPos {
+  col: number;
+  row: number;
+}
+
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+type Direction = "up" | "down" | "left" | "right";
+
+const KEY_TO_DIRECTION: Record<string, Direction> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+};
+
+const DIRECTION_DELTAS: Record<Direction, GridPos> = {
+  up: { col: 0, row: -1 },
+  down: { col: 0, row: 1 },
+  left: { col: -1, row: 0 },
+  right: { col: 1, row: 0 },
+};
 
 // ── Contrato público ─────────────────────────────────────────────────────────
 export interface FroggerSnapshot extends GameSnapshot {
@@ -171,7 +203,17 @@ export function createFroggerGame(
   let lives: number;
   let round: number;
   let speedMult: number;
+  let paused: boolean;
   const laneOffsets: number[] = LANES.map((l) => l.offset);
+
+  // Salto discreto: mientras `hopping` es true no se acepta ni se encola
+  // ninguna pulsación nueva.
+  let hopping: boolean;
+  let hopFrom: FrogPos;
+  let hopTo: GridPos;
+  let hopElapsedMs: number;
+
+  let dyingElapsedMs: number;
 
   let lastTime: number | null = null;
   let rafId: number | null = null;
@@ -184,6 +226,10 @@ export function createFroggerGame(
     lives = LIVES;
     round = 1;
     speedMult = 1;
+    paused = false;
+    hopping = false;
+    hopElapsedMs = 0;
+    dyingElapsedMs = 0;
     LANES.forEach((l, i) => {
       laneOffsets[i] = l.offset;
     });
@@ -216,7 +262,7 @@ export function createFroggerGame(
     opts.onState(snapshot);
   }
 
-  // ── Actualización de carriles ────────────────────────────────────────────────
+  // ── Carriles: movimiento y geometría compartida entre dibujo y colisión ────
   function patternLength(lane: Lane): number {
     return (lane.widthCells + lane.gapCells) * CELL;
   }
@@ -230,9 +276,146 @@ export function createFroggerGame(
     });
   }
 
+  function laneRects(lane: Lane, offset: number): Rect[] {
+    const len = patternLength(lane);
+    const widthPx = lane.widthCells * CELL;
+    const y = lane.row * CELL + 6;
+    const h = CELL - 12;
+    const rects: Rect[] = [];
+    let x = offset - len;
+    while (x < GAME_W) {
+      rects.push({ x, y, w: widthPx, h });
+      x += len;
+    }
+    return rects;
+  }
+
+  // ── Colisiones ───────────────────────────────────────────────────────────────
+  function overlaps(a: Rect, b: Rect, tolerance: number): boolean {
+    const ax1 = a.x + tolerance;
+    const ay1 = a.y + tolerance;
+    const ax2 = a.x + a.w - tolerance;
+    const ay2 = a.y + a.h - tolerance;
+    const bx1 = b.x;
+    const by1 = b.y;
+    const bx2 = b.x + b.w;
+    const by2 = b.y + b.h;
+    return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1;
+  }
+
+  function frogRect(): Rect {
+    return {
+      x: frog.col * CELL + frog.px,
+      y: frog.row * CELL,
+      w: CELL,
+      h: CELL,
+    };
+  }
+
+  function checkRoadCollision(): boolean {
+    const entry = LANE_BY_ROW.get(frog.row);
+    if (!entry || entry.lane.kind !== "road") return false;
+    const rects = laneRects(entry.lane, laneOffsets[entry.index]);
+    const fr = frogRect();
+    return rects.some((r) => overlaps(fr, r, COLLISION_TOLERANCE));
+  }
+
+  function riverPlatformUnderFrog(): Rect | null {
+    const entry = LANE_BY_ROW.get(frog.row);
+    if (!entry || entry.lane.kind !== "river") return null;
+    const rects = laneRects(entry.lane, laneOffsets[entry.index]);
+    const fr = frogRect();
+    return rects.find((r) => overlaps(fr, r, COLLISION_TOLERANCE)) ?? null;
+  }
+
+  function triggerDeath() {
+    if (phase !== "playing") return;
+    phase = "dying";
+    dyingElapsedMs = 0;
+    emitState();
+  }
+
+  function checkHazards(dt: number) {
+    if (ROAD_ROWS.includes(frog.row)) {
+      if (checkRoadCollision()) triggerDeath();
+      return;
+    }
+    if (RIVER_ROWS.includes(frog.row)) {
+      const platform = riverPlatformUnderFrog();
+      if (!platform) {
+        triggerDeath();
+        return;
+      }
+      const lane = LANE_BY_ROW.get(frog.row)!.lane;
+      frog.px += lane.dir * lane.speed * speedMult * dt;
+      const centerX = frog.col * CELL + frog.px + CELL / 2;
+      if (centerX < 0 || centerX > GAME_W) triggerDeath();
+    }
+  }
+
+  // ── Salto del jugador ────────────────────────────────────────────────────────
+  function tryHop(dir: Direction) {
+    if (hopping || phase !== "playing") return;
+    const delta = DIRECTION_DELTAS[dir];
+    const targetCol = frog.col + delta.col;
+    const targetRow = frog.row + delta.row;
+    if (
+      targetCol < 0 ||
+      targetCol >= COLS ||
+      targetRow < 0 ||
+      targetRow >= ROWS
+    ) {
+      return; // el salto que sacaría a la rana del grid no se ejecuta
+    }
+    hopping = true;
+    hopFrom = { ...frog };
+    hopTo = { col: targetCol, row: targetRow };
+    hopElapsedMs = 0;
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    const dir = KEY_TO_DIRECTION[e.key];
+    if (!dir) return;
+    const active = !paused && (phase === "playing" || phase === "dying");
+    if (active) e.preventDefault();
+    if (paused || phase !== "playing") return;
+    tryHop(dir);
+  }
+
+  // ── Bucle de actualización ───────────────────────────────────────────────────
   function update(dt: number) {
     if (phase === "over") return;
+
     updateLanes(dt);
+
+    if (phase === "dying") {
+      dyingElapsedMs += dt * 1000;
+      if (dyingElapsedMs >= DEATH_FLASH_MS) {
+        lives -= 1;
+        if (lives <= 0) {
+          phase = "over";
+        } else {
+          phase = "playing";
+          frog = { col: START_COL, row: START_ROW, px: 0 };
+          hopping = false;
+        }
+        emitState();
+      }
+      return;
+    }
+
+    // phase === "playing"
+    if (hopping) {
+      hopElapsedMs += dt * 1000;
+      if (hopElapsedMs >= HOP_MS) {
+        frog = { col: hopTo.col, row: hopTo.row, px: 0 };
+        hopping = false;
+        hopElapsedMs = 0;
+      }
+      return;
+    }
+
+    checkHazards(dt);
   }
 
   // ── Dibujo ─────────────────────────────────────────────────────────────────
@@ -264,47 +447,53 @@ export function createFroggerGame(
 
   function drawLaneElements() {
     LANES.forEach((lane, i) => {
-      const len = patternLength(lane);
-      const widthPx = lane.widthCells * CELL;
-      const y = lane.row * CELL + 6;
-      const h = CELL - 12;
-
-      // El patrón se repite; se dibuja desde un ciclo antes del borde
-      // izquierdo hasta cubrir todo el ancho del canvas.
-      let x = laneOffsets[i] - len;
-      while (x < GAME_W) {
+      const rects = laneRects(lane, laneOffsets[i]);
+      rects.forEach((r) => {
         ctx.save();
         ctx.fillStyle = lane.color;
         if (lane.kind === "river") {
-          const radius = 8;
           ctx.beginPath();
-          ctx.roundRect(x, y, widthPx, h, radius);
+          ctx.roundRect(r.x, r.y, r.w, r.h, 8);
           ctx.fill();
         } else {
-          ctx.fillRect(x, y, widthPx, h);
+          ctx.fillRect(r.x, r.y, r.w, r.h);
         }
         ctx.restore();
-        x += len;
-      }
+      });
     });
   }
 
+  function frogVisualPos(): { x: number; y: number } {
+    if (hopping) {
+      const t = Math.min(1, hopElapsedMs / HOP_MS);
+      const fromX = hopFrom.col * CELL + hopFrom.px;
+      const fromY = hopFrom.row * CELL;
+      const toX = hopTo.col * CELL;
+      const toY = hopTo.row * CELL;
+      return { x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t };
+    }
+    return { x: frog.col * CELL + frog.px, y: frog.row * CELL };
+  }
+
   function drawFrog() {
-    const x = frog.col * CELL + frog.px;
-    const y = frog.row * CELL;
+    const { x, y } = frogVisualPos();
     const margin = 6;
+    const dying = phase === "dying";
+    const blinkOn = Math.floor(dyingElapsedMs / 100) % 2 === 0;
     ctx.save();
-    ctx.fillStyle = "#22c55e";
+    ctx.fillStyle = dying ? (blinkOn ? "#ff2d55" : "#5a0f1e") : "#22c55e";
     ctx.fillRect(x + margin, y + margin, CELL - margin * 2, CELL - margin * 2);
-    ctx.fillStyle = "#0f2f16";
-    const eyeSize = 6;
-    ctx.fillRect(x + margin + 4, y + margin + 4, eyeSize, eyeSize);
-    ctx.fillRect(
-      x + CELL - margin - 4 - eyeSize,
-      y + margin + 4,
-      eyeSize,
-      eyeSize
-    );
+    if (!dying || blinkOn) {
+      ctx.fillStyle = "#0f2f16";
+      const eyeSize = 6;
+      ctx.fillRect(x + margin + 4, y + margin + 4, eyeSize, eyeSize);
+      ctx.fillRect(
+        x + CELL - margin - 4 - eyeSize,
+        y + margin + 4,
+        eyeSize,
+        eyeSize
+      );
+    }
     ctx.restore();
   }
 
@@ -328,16 +517,19 @@ export function createFroggerGame(
 
   return {
     start() {
+      window.addEventListener("keydown", handleKeyDown);
       lastTime = null;
       rafId = requestAnimationFrame(loop);
     },
     pause() {
+      paused = true;
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
     },
     resume() {
+      paused = false;
       if (rafId === null) {
         lastTime = null;
         rafId = requestAnimationFrame(loop);
@@ -351,6 +543,7 @@ export function createFroggerGame(
       emitState();
     },
     destroy() {
+      window.removeEventListener("keydown", handleKeyDown);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
