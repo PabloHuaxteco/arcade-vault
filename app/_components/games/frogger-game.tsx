@@ -11,10 +11,26 @@ import type { Game } from "@/lib/games";
 import {
   createFroggerGame,
   type FroggerHandle,
+  type FroggerSkin,
   type FroggerSnapshot,
 } from "@/lib/games/frogger/engine";
 import { insertScore } from "@/lib/scores-client";
 import { useSession } from "../session-provider";
+import { TouchControls } from "./touch-controls";
+
+const DPAD = [
+  { code: "ArrowUp", label: "▲" },
+  { code: "ArrowLeft", label: "◀" },
+  { code: "ArrowDown", label: "▼" },
+  { code: "ArrowRight", label: "▶" },
+];
+
+const SKIN_STORAGE_KEY = "av_frogger_skin";
+const SKIN_OPTIONS: { value: FroggerSkin; label: string }[] = [
+  { value: "clasico", label: "Clásico" },
+  { value: "retro", label: "Retro" },
+  { value: "neon", label: "Neon" },
+];
 
 const INITIAL_SNAPSHOT: FroggerSnapshot = {
   score: 0,
@@ -35,6 +51,7 @@ export function FroggerGame({ game }: { game: Game }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<FroggerHandle | null>(null);
 
+  const [skin, setSkin] = useState<FroggerSkin>("clasico");
   const [snapshot, setSnapshot] = useState<FroggerSnapshot>(INITIAL_SNAPSHOT);
   const [paused, setPaused] = useState(false);
   const [name, setName] = useState("INVITADO");
@@ -42,6 +59,19 @@ export function FroggerGame({ game }: { game: Game }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // La preferencia de skin vive en localStorage, local al navegador (no en
+  // Supabase); se lee tras el montaje para no romper el render de servidor.
+  useEffect(() => {
+    const savedSkin = window.localStorage.getItem(SKIN_STORAGE_KEY);
+    if (
+      savedSkin === "clasico" ||
+      savedSkin === "retro" ||
+      savedSkin === "neon"
+    ) {
+      setSkin(savedSkin);
+    }
+  }, []);
 
   // El usuario se hidrata tras el montaje (SessionProvider lee localStorage
   // en un efecto), así que sincronizamos el nombre cuando cambie.
@@ -76,7 +106,14 @@ export function FroggerGame({ game }: { game: Game }) {
       handle.destroy();
       handleRef.current = null;
     };
+    // `skin` no va en las dependencias a propósito: el motor se crea una sola
+    // vez y el cambio de paleta se aplica en caliente con setSkin().
   }, []);
+
+  // Aplica el skin sin recrear el motor: la partida en curso no se pierde.
+  useEffect(() => {
+    handleRef.current?.setSkin(skin);
+  }, [skin]);
 
   // KeyP y Escape alternan pausa por el mismo camino que el botón.
   useEffect(() => {
@@ -86,6 +123,12 @@ export function FroggerGame({ game }: { game: Game }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
+
+  const handleSkinChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as FroggerSkin;
+    window.localStorage.setItem(SKIN_STORAGE_KEY, value);
+    setSkin(value);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -128,6 +171,16 @@ export function FroggerGame({ game }: { game: Game }) {
               <div className="v">{stat.v}</div>
             </div>
           ))}
+          <div className="hud-stat">
+            <div className="l">Skin</div>
+            <select value={skin} onChange={handleSkinChange}>
+              {SKIN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="hud-actions">
           <button className="btn yellow" onClick={togglePause}>
@@ -163,6 +216,13 @@ export function FroggerGame({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      <TouchControls
+        dpad={DPAD}
+        actions={[]}
+        onPress={(code) => handleRef.current?.press(code)}
+        onRelease={(code) => handleRef.current?.release(code)}
+      />
 
       {snapshot.over && (
         <div className="modal-bd">

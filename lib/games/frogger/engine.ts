@@ -46,7 +46,8 @@ interface Lane {
   widthCells: number; // ancho de cada elemento en celdas
   gapCells: number; // hueco entre elementos, en celdas
   offset: number; // desfase inicial del patrón, en píxeles
-  color: string;
+  // El color no vive aquí: lo aporta el skin activo por índice de carril
+  // (`Skin["colors"]["lanes"][i]`), para que la geometría sea común a los tres.
 }
 
 const LANES: readonly Lane[] = [
@@ -59,7 +60,6 @@ const LANES: readonly Lane[] = [
     widthCells: 3,
     gapCells: 2,
     offset: 0,
-    color: "#8a5a2b",
   },
   {
     row: 2,
@@ -69,7 +69,6 @@ const LANES: readonly Lane[] = [
     widthCells: 2,
     gapCells: 2,
     offset: 100,
-    color: "#3ddc84",
   },
   {
     row: 3,
@@ -79,7 +78,6 @@ const LANES: readonly Lane[] = [
     widthCells: 4,
     gapCells: 3,
     offset: 200,
-    color: "#8a5a2b",
   },
   {
     row: 4,
@@ -89,7 +87,6 @@ const LANES: readonly Lane[] = [
     widthCells: 2,
     gapCells: 2,
     offset: 50,
-    color: "#3ddc84",
   },
   // Carretera (filas 6-9): vehículos.
   {
@@ -100,7 +97,6 @@ const LANES: readonly Lane[] = [
     widthCells: 1,
     gapCells: 2,
     offset: 0,
-    color: "#ff2fb3",
   },
   {
     row: 7,
@@ -110,7 +106,6 @@ const LANES: readonly Lane[] = [
     widthCells: 2,
     gapCells: 3,
     offset: 150,
-    color: "#66fff5",
   },
   {
     row: 8,
@@ -120,7 +115,6 @@ const LANES: readonly Lane[] = [
     widthCells: 1,
     gapCells: 2,
     offset: 300,
-    color: "#f7ff4d",
   },
   {
     row: 9,
@@ -130,9 +124,143 @@ const LANES: readonly Lane[] = [
     widthCells: 1,
     gapCells: 4,
     offset: 80,
-    color: "#ff5e5e",
   },
 ];
+
+// ── Skins ────────────────────────────────────────────────────────────────────
+// Los tres skins comparten geometría y física: solo cambian paleta y, vía
+// `style`, si el trazo lleva glow (`neon`) o borde duro (`flat`). Todos los
+// colores de primer plano superan 4.5:1 contra el `#000` de `.game-canvas`
+// salvo las excepciones registradas en references/game-with-themes.md.
+export type FroggerSkin = "clasico" | "retro" | "neon";
+
+interface SkinColors {
+  // Un color por carril, en el mismo orden que LANES (0-3 río, 4-7 carretera).
+  lanes: readonly string[];
+  // Superficies de fondo (no son primer plano: se mantienen oscuras a propósito).
+  nestShore: string;
+  nestBox: string;
+  river: string;
+  median: string;
+  road: string;
+  startShore: string;
+  // Primer plano.
+  nestFree: string;
+  nestTaken: string;
+  frog: string;
+  frogEye: string;
+  frogDyingOn: string;
+  frogDyingOff: string; // fotograma apagado del parpadeo: oscuro a propósito
+  clockTrack: string; // parte vacía de la barra = fondo
+  clockOk: string;
+  clockLow: string;
+}
+
+interface Skin {
+  style: "flat" | "neon";
+  glow: number; // shadowBlur en px; 0 = sin sombra, bordes duros
+  colors: SkinColors;
+}
+
+const SKINS: Record<FroggerSkin, Skin> = {
+  // Valores calcados del motor original, sin alterar un solo dígito.
+  clasico: {
+    style: "flat",
+    glow: 0,
+    colors: {
+      lanes: [
+        "#8a5a2b", // tronco
+        "#3ddc84", // nenúfar
+        "#8a5a2b", // tronco
+        "#3ddc84", // nenúfar
+        "#ff2fb3",
+        "#66fff5",
+        "#f7ff4d",
+        "#ff5e5e",
+      ],
+      nestShore: "#0f2f16",
+      nestBox: "#123a1b",
+      river: "#0a2540",
+      median: "#1a1a1a",
+      road: "#141414",
+      startShore: "#0f2f16",
+      nestFree: "#1d5a2a",
+      nestTaken: "#2f6b3c",
+      frog: "#22c55e",
+      frogEye: "#0f2f16",
+      frogDyingOn: "#ff2d55",
+      frogDyingOff: "#5a0f1e",
+      clockTrack: "#000",
+      clockOk: "#ffdd55",
+      clockLow: "#ff4d4d",
+    },
+  },
+  // Fósforo ámbar: cinco tonos de una misma familia, formas planas, sin glow.
+  retro: {
+    style: "flat",
+    glow: 0,
+    colors: {
+      lanes: [
+        "#c9761a", // tronco (6.09:1)
+        "#ffc14d", // nenúfar (12.99:1)
+        "#c9761a",
+        "#ffc14d",
+        "#ffb000", // 11.46:1
+        "#c9761a", // 6.09:1
+        "#ffb000",
+        "#c9761a",
+      ],
+      nestShore: "#2a1c06",
+      nestBox: "#3a2708",
+      river: "#181206",
+      median: "#241a08",
+      road: "#0d0a05",
+      startShore: "#2a1c06",
+      nestFree: "#ffc14d", // 12.99:1
+      nestTaken: "#d98a2b", // 7.62:1
+      frog: "#ffe9b5", // 17.57:1
+      frogEye: "#b36b00", // 5.02:1 sobre negro, 3.50:1 sobre el cuerpo
+      frogDyingOn: "#ff8c1a", // 9.02:1
+      frogDyingOff: "#4a2200",
+      clockTrack: "#000",
+      clockOk: "#ffc14d",
+      clockLow: "#ff8c1a",
+    },
+  },
+  // Alto contraste sobre negro: río en tonos fríos, carretera en cálidos,
+  // glow del propio trazo. El relleno se lee igual con shadowBlur = 0.
+  neon: {
+    style: "neon",
+    glow: 12,
+    colors: {
+      lanes: [
+        "#c77dff", // tronco violeta (7.81:1)
+        "#00e5ff", // nenúfar cian (13.65:1)
+        "#c77dff",
+        "#00e5ff",
+        "#ff2fb3", // 6.31:1
+        "#ffa63d", // 10.77:1
+        "#f7ff4d", // 19.37:1
+        "#ff5e5e", // 7.01:1
+      ],
+      nestShore: "#061a0e",
+      nestBox: "#0a2614",
+      river: "#040f22",
+      median: "#12121a",
+      road: "#08080e",
+      startShore: "#061a0e",
+      nestFree: "#39ff88", // 15.83:1
+      nestTaken: "#2bbf6a", // 8.76:1
+      frog: "#aaff66", // 17.21:1
+      frogEye: "#ff2fb3", // 6.31:1 sobre negro, 2.73:1 sobre el cuerpo
+      frogDyingOn: "#ff2d55", // 5.76:1
+      frogDyingOff: "#3a0a16",
+      clockTrack: "#000",
+      clockOk: "#f7ff4d",
+      clockLow: "#ff2d55",
+    },
+  },
+};
 
 const LANE_BY_ROW = new Map<number, { lane: Lane; index: number }>();
 LANES.forEach((lane, index) => LANE_BY_ROW.set(lane.row, { lane, index }));
@@ -185,16 +313,27 @@ export interface FroggerHandle {
   resume(): void;
   restart(): void;
   end(): void;
+  /** Cambia la paleta en caliente, sin destruir la partida en curso. */
+  setSkin(skin: FroggerSkin): void;
+  /** Equivalente táctil de un keydown: ejecuta un salto en esa dirección. */
+  press(code: string): void;
+  /** Frogger no reacciona a keyup: no-op, igual que con teclado físico. */
+  release(code: string): void;
   destroy(): void;
 }
 
 export function createFroggerGame(
   canvas: HTMLCanvasElement,
-  opts: { onState: (s: FroggerSnapshot) => void }
+  opts: { onState: (s: FroggerSnapshot) => void; skin?: FroggerSkin }
 ): FroggerHandle {
   const ctx2d = canvas.getContext("2d");
   if (!ctx2d) throw new Error("No se pudo obtener el contexto 2D del canvas.");
   const ctx: CanvasRenderingContext2D = ctx2d;
+
+  // Skin activo: si falta o no se reconoce el valor, cae en `clasico`.
+  let skinName: FroggerSkin =
+    opts.skin && SKINS[opts.skin] ? opts.skin : "clasico";
+  let skin: Skin = SKINS[skinName];
 
   // Estado de partida: encapsulado por completo dentro de la fábrica.
   let phase: Phase;
@@ -408,13 +547,21 @@ export function createFroggerGame(
     hopElapsedMs = 0;
   }
 
+  // Camino único de control, compartido por el teclado y los botones táctiles.
+  // `code` usa los mismos strings que KeyboardEvent.code/key para las flechas.
+  function runDirection(code: string) {
+    const dir = KEY_TO_DIRECTION[code];
+    if (!dir) return;
+    if (paused || phase !== "playing") return;
+    tryHop(dir);
+  }
+
   function handleKeyDown(e: KeyboardEvent) {
     const dir = KEY_TO_DIRECTION[e.key];
     if (!dir) return;
     const active = !paused && (phase === "playing" || phase === "dying");
     if (active) e.preventDefault();
-    if (paused || phase !== "playing") return;
-    tryHop(dir);
+    runDirection(e.key);
   }
 
   // ── Bucle de actualización ───────────────────────────────────────────────────
@@ -464,49 +611,64 @@ export function createFroggerGame(
   }
 
   // ── Dibujo ─────────────────────────────────────────────────────────────────
+  // Aplica el glow del skin `neon`; en `flat` deja el borde duro. El relleno
+  // nunca depende de la sombra: la forma se lee igual con shadowBlur = 0.
+  function applyGlow(color: string) {
+    if (skin.style === "neon") {
+      ctx.shadowBlur = skin.glow;
+      ctx.shadowColor = color;
+    }
+  }
+
   function drawZones() {
+    const c = skin.colors;
     // Orilla de nidos (fila 0): juncos sólidos con huecos en NEST_COLS.
-    ctx.fillStyle = "#0f2f16";
+    ctx.fillStyle = c.nestShore;
     ctx.fillRect(0, NEST_ROW * CELL, GAME_W, CELL);
     for (const col of NEST_COLS) {
       const x = col * CELL;
       const y = NEST_ROW * CELL;
-      ctx.fillStyle = "#123a1b";
+      ctx.fillStyle = c.nestBox;
       ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
+      ctx.save();
       if (occupiedNests.has(col)) {
         // Nicho ocupado: rana apagada, sin brillo.
-        ctx.fillStyle = "#2f6b3c";
+        ctx.fillStyle = c.nestTaken;
         ctx.fillRect(x + 14, y + 14, CELL - 28, CELL - 28);
       } else {
         // Nicho libre: hueco con brillo.
-        ctx.fillStyle = "#1d5a2a";
+        applyGlow(c.nestFree);
+        ctx.fillStyle = c.nestFree;
         ctx.fillRect(x + 10, y + 10, CELL - 20, CELL - 20);
       }
+      ctx.restore();
     }
 
     // Río (filas 1-4).
-    ctx.fillStyle = "#0a2540";
+    ctx.fillStyle = c.river;
     ctx.fillRect(0, RIVER_ROWS[0] * CELL, GAME_W, RIVER_ROWS.length * CELL);
 
     // Mediana segura (fila 5).
-    ctx.fillStyle = "#1a1a1a";
+    ctx.fillStyle = c.median;
     ctx.fillRect(0, MEDIAN_ROW * CELL, GAME_W, CELL);
 
     // Carretera (filas 6-9).
-    ctx.fillStyle = "#141414";
+    ctx.fillStyle = c.road;
     ctx.fillRect(0, ROAD_ROWS[0] * CELL, GAME_W, ROAD_ROWS.length * CELL);
 
     // Orilla de salida (filas 10-11).
-    ctx.fillStyle = "#0f2f16";
+    ctx.fillStyle = c.startShore;
     ctx.fillRect(0, 10 * CELL, GAME_W, 2 * CELL);
   }
 
   function drawLaneElements() {
     LANES.forEach((lane, i) => {
+      const color = skin.colors.lanes[i];
       const rects = laneRects(lane, laneOffsets[i]);
       rects.forEach((r) => {
         ctx.save();
-        ctx.fillStyle = lane.color;
+        applyGlow(color);
+        ctx.fillStyle = color;
         if (lane.kind === "river") {
           ctx.beginPath();
           ctx.roundRect(r.x, r.y, r.w, r.h, 8);
@@ -536,11 +698,17 @@ export function createFroggerGame(
     const margin = 6;
     const dying = phase === "dying";
     const blinkOn = Math.floor(dyingElapsedMs / 100) % 2 === 0;
+    const c = skin.colors;
+    const body = dying ? (blinkOn ? c.frogDyingOn : c.frogDyingOff) : c.frog;
     ctx.save();
-    ctx.fillStyle = dying ? (blinkOn ? "#ff2d55" : "#5a0f1e") : "#22c55e";
+    // El fotograma apagado del parpadeo no lleva glow: su función es
+    // desaparecer contra el fondo durante medio segundo.
+    if (!dying || blinkOn) applyGlow(body);
+    ctx.fillStyle = body;
     ctx.fillRect(x + margin, y + margin, CELL - margin * 2, CELL - margin * 2);
     if (!dying || blinkOn) {
-      ctx.fillStyle = "#0f2f16";
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = c.frogEye;
       const eyeSize = 6;
       ctx.fillRect(x + margin + 4, y + margin + 4, eyeSize, eyeSize);
       ctx.fillRect(
@@ -555,10 +723,13 @@ export function createFroggerGame(
 
   function drawClockBar() {
     const frac = Math.max(0, crossTimer / CROSS_TIME_S);
+    const c = skin.colors;
+    const bar = frac > 0.3 ? c.clockOk : c.clockLow;
     ctx.save();
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = c.clockTrack;
     ctx.fillRect(0, 0, GAME_W, 6);
-    ctx.fillStyle = frac > 0.3 ? "#ffdd55" : "#ff4d4d";
+    applyGlow(bar);
+    ctx.fillStyle = bar;
     ctx.fillRect(0, 0, GAME_W * frac, 6);
     ctx.restore();
   }
@@ -608,6 +779,20 @@ export function createFroggerGame(
     end() {
       phase = "over";
       emitState();
+    },
+    // Reemplaza la paleta en caliente: el siguiente frame ya se pinta con el
+    // skin nuevo y la partida en curso sigue intacta.
+    setSkin(next: FroggerSkin) {
+      skinName = SKINS[next] ? next : "clasico";
+      skin = SKINS[skinName];
+      // En pausa no hay bucle que repinte: refresca el frame actual a mano.
+      if (rafId === null) draw();
+    },
+    press(code: string) {
+      runDirection(code);
+    },
+    release() {
+      // no-op: Frogger no reacciona a keyup, igual que con teclado físico.
     },
     destroy() {
       window.removeEventListener("keydown", handleKeyDown);
