@@ -30,7 +30,7 @@ export async function createClient() {
             });
           } catch {
             // Escribir cookies desde un Server Component lanza: es esperado.
-            // El refresco real de sesión llegará con `proxy.ts` en la spec de auth.
+            // El refresco real de sesión ocurre en `proxy.ts` (SPEC 11).
           }
         },
       },
