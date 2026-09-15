@@ -2,8 +2,7 @@
 
 // Formulario de acceso real: tabs iniciar / crear sobre Supabase Auth.
 // Portado de references/templates/auth.jsx; ver useSession() (session-provider.tsx)
-// para signIn/signUp/signOut/requestPasswordReset reales. Los botones GOOGLE/GITHUB
-// siguen inertes hasta el paso de OAuth.
+// para signIn/signUp/signOut/requestPasswordReset/signInWithOAuth reales.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,7 +10,8 @@ import { useSession } from "./session-provider";
 
 export function AuthForm() {
   const router = useRouter();
-  const { signIn, signUp, signOut, requestPasswordReset } = useSession();
+  const { signIn, signUp, signOut, requestPasswordReset, signInWithOAuth } =
+    useSession();
 
   const [tab, setTab] = useState<"in" | "up">("in");
   const [playerName, setPlayerName] = useState("");
@@ -26,6 +26,9 @@ export function AuthForm() {
   const [forgotPending, setForgotPending] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotSent, setForgotSent] = useState(false);
+  const [oauthPending, setOauthPending] = useState<"google" | "github" | null>(
+    null
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +75,17 @@ export function AuthForm() {
       return;
     }
     setForgotSent(true);
+  };
+
+  const oauth = async (provider: "google" | "github") => {
+    setError(null);
+    setOauthPending(provider);
+    const { error } = await signInWithOAuth(provider);
+    if (error) {
+      setOauthPending(null);
+      setError(error);
+    }
+    // Sin error: el navegador ya está siendo redirigido al proveedor.
   };
 
   return (
@@ -165,7 +179,7 @@ export function AuthForm() {
                 className="btn lg"
                 type="submit"
                 style={{ width: "100%", marginTop: 8 }}
-                disabled={pending}
+                disabled={pending || oauthPending !== null}
               >
                 {pending
                   ? "UN MOMENTO…"
@@ -243,17 +257,28 @@ export function AuthForm() {
               className="btn ghost"
               style={{ width: "100%", marginTop: 10 }}
               onClick={playAsGuest}
+              disabled={oauthPending !== null}
             >
               JUGAR COMO INVITADO
             </button>
 
             <div className="auth-divider">O CONTINÚA CON</div>
             <div className="social">
-              <button className="btn ghost" type="button">
-                ◆ &nbsp;GOOGLE
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={oauthPending !== null}
+                onClick={() => oauth("google")}
+              >
+                ◆ &nbsp;{oauthPending === "google" ? "CONECTANDO…" : "GOOGLE"}
               </button>
-              <button className="btn ghost" type="button">
-                ▣ &nbsp;GITHUB
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={oauthPending !== null}
+                onClick={() => oauth("github")}
+              >
+                ▣ &nbsp;{oauthPending === "github" ? "CONECTANDO…" : "GITHUB"}
               </button>
             </div>
           </>
