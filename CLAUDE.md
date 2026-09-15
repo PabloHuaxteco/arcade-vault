@@ -10,20 +10,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Skills
 
+Viven en `.claude/skills/<name>/SKILL.md`, todas con `disable-model-invocation: true` (solo se invocan como `/comando`, nunca las elige el modelo por su cuenta).
+
 - Usa siempre `/frontend-design` para diseñar interfaz nueva. Las pantallas portadas pixel a pixel desde `references/templates/` (home, biblioteca, acerca) son la excepción deliberada: se replican con las clases ya existentes en `app/globals.css`, sin pasar por `/frontend-design`.
-- Este repo sigue Spec Driven Design (skills instaladas vía `npx skills@latest add Klerith/fernando-skills`, ver `README.md`). Todo cambio de producto pasa por una spec en `specs/` antes de tocar código:
-  - `/spec` — diseña specs de features generales de la plataforma.
-  - `/spec-game` — diseña specs específicamente para nuevos juegos jugables (motor + leaderboard Supabase), portando una carpeta de `references/started-games/` o diseñando desde cero. Nunca escribe código de juego, solo la spec.
+- Este repo sigue Spec Driven Design (skills instaladas vía `npx skills@latest add Klerith/fernando-skills`, ver `README.md`). Todo cambio de producto pasa por una spec antes de tocar código:
+  - `/spec` — diseña specs de features generales de la plataforma (trae `template.md`).
+  - `/spec-game` — diseña specs específicamente para nuevos juegos jugables (motor + leaderboard Supabase), portando una carpeta de `references/started-games/` o diseñando desde cero (trae `contrato-plataforma.md`). Nunca escribe código de juego, solo la spec.
   - `/spec-impl` — implementa una spec ya aprobada.
-  - `/spec-impl-game` — implementa una spec de juego ya aprobada exactamente igual que `/spec-impl` (Fases 1-4 idénticas, incluyendo specs bajo `specs/game-jam/<game-id>/`) y, solo si termina todos los pasos del plan, encadena en la Fase 5 `skin-designer` y luego `mobile-porter` sobre el juego recién implementado — secuencial, nunca en paralelo, y siempre con confirmación explícita antes de lanzarlos.
-  - Las specs numeradas viven en `specs/NN-*.md` con estado (`Implementado`/`Aprobado`/etc.) en el encabezado; consúltalas antes de tocar el área que cubren.
+  - `/spec-impl-game` — implementa una spec de juego ya aprobada igual que `/spec-impl` y, si termina todos los pasos, encadena `skin-designer` → `mobile-porter` sobre el juego recién implementado — secuencial, nunca en paralelo, y con confirmación explícita antes de lanzarlos.
+  - Las specs numeradas viven en `specs/NN-*.md` con estado (`Implementado`/`Aprobado`/etc.) en el encabezado; consúltalas antes de tocar el área que cubren. Las specs de `game-jam` viven aparte en `specs/game-jam/<game-id>/`, fuera de esa numeración, hasta que se promueven o aprueban.
 
 ## Agents
 
-- `game-planner` (`.claude/agents/game-planner.md`) — decide qué juego construir después. Analiza el catálogo real (`lib/games.ts`, `references/implemented-games.md`), las restricciones técnicas de la plataforma (`.claude/skills/spec-game/contrato-plataforma.md`) y su propia memoria persistente en `references/game-suggestions-todo.md`, y devuelve 1-3 candidatos razonados con veredicto. No escribe specs ni código: el siguiente paso es correr `/spec-game` con la recomendación elegida.
-- `game-jam` (`.claude/agents/game-jam.md`) — convierte un tema libre ("fondo marino", "circo abandonado") en un juego nuevo diseñado desde cero para Arcade Vault. Lee el estado real de la plataforma (`CLAUDE.md`/`AGENTS.md`, el contrato de `spec-game`, el template de `spec`, `specs/09-juego-snake.md` como modelo, `lib/games.ts`, `references/implemented-games.md` y, solo en lectura, `references/game-suggestions-todo.md`) y escribe dos specs borrador en `specs/game-jam/<game-id>/` — `01-<game-id>-mvp.md` (motor jugable + leaderboard Supabase) y `02-<game-id>-extension.md` (mecánicas cortadas del MVP). Es autónomo: nunca pregunta, nunca escribe código de juego, y estas specs viven fuera de la numeración global `specs/NN-*.md` hasta que se promueven o aprueban explícitamente. El siguiente paso tras su entrega es `/spec-impl`.
-- `skin-designer` (`.claude/agents/skin-designer.md`) — implementa código directo (excepción deliberada al Spec Driven Design) para que **un solo juego a la vez**, el que se le nombre, ofrezca al menos tres skins — `neon`, `retro` y `clasico` (default) — legibles sobre el fondo oscuro real de la plataforma (verifica contraste ≥ 4.5:1 contra el `#000` de `.game-canvas`). Toca únicamente `lib/games/<engine>/engine.ts` y `app/_components/games/<engine>-game.tsx` del juego objetivo, más su memoria persistente `references/game-with-themes.md`. Nunca elige el juego por su cuenta, nunca toca `lib/games.ts`, Supabase, `app/globals.css` ni `specs/`.
-- `mobile-porter` (`.claude/agents/mobile-porter.md`) — implementa código directo (otra excepción deliberada al Spec Driven Design, igual que `skin-designer`) para portar el patrón de controles táctiles de `specs/10-controles-tactiles-moviles.md` a **un solo juego a la vez**, el que se le nombre: añade `press`/`release` al `XxxHandle` del motor y una barra `<TouchControls>` a su wrapper. Toca únicamente `lib/games/<engine>/engine.ts` y `app/_components/games/<engine>-game.tsx` del juego objetivo. No lleva memoria persistente. Nunca elige el juego por su cuenta, nunca modifica `app/globals.css`, `lib/games.ts`, Supabase ni `specs/`; si el juego ya tiene táctil o no tiene motor, lo reporta y para.
+Definidos en `.claude/agents/<name>.md` — ahí está el contrato completo de cada uno; aquí solo un resumen. `skin-designer` y `mobile-porter` son las dos excepciones deliberadas al Spec Driven Design: escriben código de juego directo, sin pasar por una spec.
+
+- `game-planner` — decide qué juego construir después, analizando el catálogo y su memoria persistente (`references/game-suggestions-todo.md`); no escribe specs ni código.
+- `game-jam` — convierte un tema libre en un juego nuevo diseñado desde cero y escribe dos specs borrador en `specs/game-jam/<game-id>/`; nunca escribe código de juego.
+- `skin-designer` — añade skins (`neon`, `retro`, `clasico`) a un solo juego nombrado explícitamente; memoria persistente en `references/game-with-themes.md`.
+- `mobile-porter` — añade controles táctiles (patrón de SPEC 10) a un solo juego nombrado explícitamente.
 
 ## Architecture
 
@@ -46,12 +50,23 @@ Arcade Vault is an online arcade platform where players compete on points (see `
 
 ### Game engines (`lib/games/<engine>/engine.ts` + `app/_components/games/<engine>-game.tsx`)
 
-Games with real, playable canvas engines are each ported from a `references/started-games/` reference (except Snake, designed from scratch) and registered by `engine` key in the `ENGINES` map in `app/juego/[id]/jugar/page.tsx`. See `references/implemented-games.md` for the current list of implemented games (with their spec) and pending catalog entries without an engine yet.
+Five engines are registered by `engine` key in the `ENGINES` map in `app/juego/[id]/jugar/page.tsx`: `asteroids`, `tetris`, `arkanoid`, `snake`, `frogger`. Each is ported from a `references/started-games/` reference, except `snake` and `frogger`, both designed from scratch (`frogger` via the `game-jam` agent, see `specs/game-jam/salta-charcos/01-salta-charcos-mvp.md`). See `references/implemented-games.md` for the current list of implemented games (with their spec) and pending catalog entries without an engine yet.
 
 Any catalog entry without a matching `engine` value still falls back to the decorative fake `<GamePlayer>` (`app/_components/game-player.tsx`). New games get their spec via `/spec-game`, then an implementation that adds an engine module, a game component, and a new key in `ENGINES`.
+
+#### Capas transversales de los juegos
+
+- **Skins.** Los cinco motores exponen `setSkin()` en su `XxxHandle`, con al menos `clasico` (default, aspecto original), `retro` y `neon`; el wrapper (`app/_components/games/<engine>-game.tsx`) monta el selector. Cobertura y ratios de contraste (mínimo 4.5:1 contra el `#000` de `.game-canvas`) se registran en `references/game-with-themes.md`, memoria persistente del agente `skin-designer`.
+- **Táctil.** Los cinco wrappers montan `<TouchControls>` (`app/_components/games/touch-controls.tsx`) y sus motores exponen `press`/`release` en el `XxxHandle`, siguiendo el patrón de SPEC 10 (`specs/10-controles-tactiles-moviles.md`). Añadido por el agente `mobile-porter`.
 
 ### Data layer
 
 - **Supabase** (`lib/supabase/client.ts`, `lib/supabase/server.ts`, `@supabase/ssr`) backs the real game catalog (`lib/games.ts`) and leaderboard (`lib/scores.ts` / `lib/scores-client.ts`) — tables `games` and `scores`, since SPEC 06. Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (see `README.md`).
 - **Auth is still fake.** `app/_components/auth-form.tsx` + `app/_components/session-provider.tsx` + `lib/storage.ts` run on `localStorage`; there is no real Supabase auth yet.
 - **Contact form** (`/acerca`) sends real email via a Server Action calling Resend (`RESEND_API_KEY`, `CONTACT_TO` env vars).
+
+## Tooling y comandos
+
+- **Formateo automático.** Un hook `PostToolUse` (`.claude/hooks/format-and-lint.mjs`, registrado en `.claude/settings.local.json`) corre Prettier `--write` y, en archivos JS/TS, ESLint `--fix` tras cada `Write`/`Edit`. No hace falta formatear a mano.
+- **MCP de Supabase.** `.mcp.json` declara el servidor `supabase` (HTTP), habilitado en `settings.local.json`; es la vía real para inspeccionar el proyecto y aplicar migraciones (`apply_migration`, `execute_sql`, etc.) — las specs de juego lo usan para sembrar filas en `games`.
+- **Comandos npm:** `npm run dev` (además re-agrega el bloque de agent-rules a `AGENTS.md`), `npm run build`, `npm start`, `npm run lint`. No hay test runner configurado.
