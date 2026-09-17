@@ -22,12 +22,13 @@ Viven en `.claude/skills/<name>/SKILL.md`, todas con `disable-model-invocation: 
 
 ## Agents
 
-Definidos en `.claude/agents/<name>.md` — ahí está el contrato completo de cada uno; aquí solo un resumen. `skin-designer` y `mobile-porter` son las dos excepciones deliberadas al Spec Driven Design: escriben código de juego directo, sin pasar por una spec.
+Definidos en `.claude/agents/<name>.md` — ahí está el contrato completo de cada uno; aquí solo un resumen. `skin-designer` y `mobile-porter` son las dos excepciones deliberadas al Spec Driven Design: escriben código de juego directo, sin pasar por una spec. `security-auditor` no es una excepción: solo audita y recomienda, cualquier arreglo pasa por `/spec`.
 
 - `game-planner` — decide qué juego construir después, analizando el catálogo y su memoria persistente (`references/game-suggestions-todo.md`); no escribe specs ni código.
 - `game-jam` — convierte un tema libre en un juego nuevo diseñado desde cero y escribe dos specs borrador en `specs/game-jam/<game-id>/`; nunca escribe código de juego.
 - `skin-designer` — añade skins (`neon`, `retro`, `clasico`) a un solo juego nombrado explícitamente; memoria persistente en `references/game-with-themes.md`.
 - `mobile-porter` — añade controles táctiles (patrón de SPEC 10) a un solo juego nombrado explícitamente.
+- `security-auditor` — audita la seguridad de la base de datos en Supabase (RLS, políticas, advisors, configuración de Auth) y de la aplicación Next.js (headers, `proxy.ts`, Server Actions, claves, XSS, redirecciones abiertas) y dependencias npm; solo lectura, memoria persistente en `references/security/audit-log.md`.
 
 ## Architecture
 
@@ -45,7 +46,7 @@ Arcade Vault is an online arcade platform where players compete on points (see `
 - `/juego/[id]` — game detail page; `/juego/[id]/jugar` — the actual player, a Server Component that resolves the game by id and dispatches to a real engine or the fallback fake `<GamePlayer>`.
 - `/salon` — hall of fame / global leaderboard.
 - `/acerca` — about + contact form (Server Action → Resend).
-- `/entrar` — fake auth (`localStorage`-backed, see below).
+- `/entrar` — real auth via Supabase Auth (see below).
 - `/debug/supabase` — temporary connectivity check page.
 
 ### Game engines (`lib/games/<engine>/engine.ts` + `app/_components/games/<engine>-game.tsx`)
@@ -62,7 +63,7 @@ Any catalog entry without a matching `engine` value still falls back to the deco
 ### Data layer
 
 - **Supabase** (`lib/supabase/client.ts`, `lib/supabase/server.ts`, `@supabase/ssr`) backs the real game catalog (`lib/games.ts`) and leaderboard (`lib/scores.ts` / `lib/scores-client.ts`) — tables `games` and `scores`, since SPEC 06. Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (see `README.md`).
-- **Auth is still fake.** `app/_components/auth-form.tsx` + `app/_components/session-provider.tsx` + `lib/storage.ts` run on `localStorage`; there is no real Supabase auth yet.
+- **Auth is real**, since SPEC 11. `app/_components/auth-form.tsx` + `app/_components/session-provider.tsx` run on `supabase.auth` (email/password + Google/GitHub OAuth, session refreshed per-request by `proxy.ts`); `lib/storage.ts` no longer holds session state, only the decorative fallback `<GamePlayer>`'s local score history. SPEC 12 hardened `scores` INSERT to require a real session (`scores.user_id`, `auth.uid()`).
 - **Contact form** (`/acerca`) sends real email via a Server Action calling Resend (`RESEND_API_KEY`, `CONTACT_TO` env vars).
 
 ## Tooling y comandos
