@@ -22,10 +22,7 @@ export function HallOfFame({
   const rows = useMemo(() => scoresByGame[tab] ?? [], [scoresByGame, tab]);
   const game = games.find((g) => g.id === tab) ?? games[0];
   const youRow = useMemo(
-    () =>
-      user
-        ? rows.find((r) => r.name.toLowerCase() === user.name.toLowerCase())
-        : undefined,
+    () => (user ? rows.find((r) => r.userId === user.id) : undefined),
     [rows, user]
   );
 

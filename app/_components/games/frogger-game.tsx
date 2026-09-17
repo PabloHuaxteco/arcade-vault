@@ -5,6 +5,7 @@
 // del reproductor falso y alimenta la barra .player-hud de la plataforma con
 // el snapshot que emite lib/games/frogger/engine.ts.
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Game } from "@/lib/games";
@@ -232,7 +233,12 @@ export function FroggerGame({ game }: { game: Game }) {
             <div className="final">
               {snapshot.score.toLocaleString("es-ES")}
             </div>
-            {!saved ? (
+            {!user ? (
+              <div className="toast-saved">
+                ▸ Inicia sesión para guardar tu puntuación.{" "}
+                <Link href="/entrar">Iniciar sesión</Link>
+              </div>
+            ) : !saved ? (
               <div
                 className="input-row"
                 style={{

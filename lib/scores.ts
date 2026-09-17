@@ -13,6 +13,7 @@ export interface ScoreRow {
   name: string; // "PX_KAI"
   score: number;
   date: string; // "dd/mm/yyyy", derivado de created_at
+  userId: string | null; // null en filas semilla sin cuenta real (SPEC 06)
 }
 
 function formatDate(createdAt: string): string {
@@ -30,7 +31,7 @@ export async function getTopScores(
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("scores")
-    .select("name, score, created_at")
+    .select("name, score, created_at, user_id")
     .eq("game_id", gameId)
     .order("score", { ascending: false })
     .limit(limit);
@@ -42,6 +43,7 @@ export async function getTopScores(
     name: row.name,
     score: row.score,
     date: formatDate(row.created_at),
+    userId: row.user_id,
   }));
 }
 
@@ -55,7 +57,7 @@ export async function getTopScoresByGames(
     gameIds.map(async (gameId) => {
       const { data, error } = await supabase
         .from("scores")
-        .select("name, score, created_at")
+        .select("name, score, created_at, user_id")
         .eq("game_id", gameId)
         .order("score", { ascending: false })
         .limit(limit);
@@ -68,6 +70,7 @@ export async function getTopScoresByGames(
               name: row.name,
               score: row.score,
               date: formatDate(row.created_at),
+              userId: row.user_id,
             }));
 
       return [gameId, rows] as const;

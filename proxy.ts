@@ -34,7 +34,16 @@ export async function proxy(request: NextRequest) {
 
   // No se elimina: refresca el token si expiró, lo que a su vez reescribe
   // las cookies de sesión mediante `setAll` arriba.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Con sesión activa, /entrar ya no tiene nada que ofrecer: se redirige a la
+  // biblioteca. No se excluye /entrar/restablecer, que depende de la sesión
+  // temporal del enlace de recuperación para funcionar.
+  if (user && request.nextUrl.pathname === "/entrar") {
+    return NextResponse.redirect(new URL("/biblioteca", request.url));
+  }
 
   return response;
 }
