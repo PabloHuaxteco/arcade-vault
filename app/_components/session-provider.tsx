@@ -17,6 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 interface SessionUser {
+  id: string; // auth.users.id — usado para el match "TÚ" en /salon
   name: string; // user_metadata.display_name, mayúsculas, máx. 10 caracteres
 }
 
@@ -56,7 +57,7 @@ function deriveName(user: User): string {
 }
 
 function toSessionUser(user: User | null | undefined): SessionUser | null {
-  return user ? { name: deriveName(user) } : null;
+  return user ? { id: user.id, name: deriveName(user) } : null;
 }
 
 // Traduce los mensajes de error más comunes de Supabase Auth; el resto se
