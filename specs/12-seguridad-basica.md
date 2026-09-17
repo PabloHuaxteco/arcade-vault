@@ -1,6 +1,6 @@
 # SPEC 12 — Medidas de seguridad básicas
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 04, SPEC 06, SPEC 11
 > **Fecha:** 2026-09-17
 > **Objetivo:** Aplicar el checklist básico de seguridad de `references/security/security-checklist.md` — endurecer la política de `INSERT` en `scores` exigiendo sesión real, políticas de contraseña/anti-bot de Supabase Auth, y headers HTTP de seguridad en Next.js.
@@ -29,25 +29,27 @@ El resto del checklist (longitud mínima de contraseña, protección de contrase
 - Los 5 wrappers de juego (`asteroids-game.tsx`, `tetris-game.tsx`, `arkanoid-game.tsx`, `snake-game.tsx`, `frogger-game.tsx`): cuando no hay sesión activa (`user === null`), la pantalla de fin de partida muestra un aviso ("inicia sesión para guardar tu puntuación", con enlace a `/entrar`) en vez del formulario de iniciales + botón GUARDAR PUNTUACIÓN. Con sesión, el flujo de guardado no cambia para quien juega.
 - `next.config.ts`: función `headers()` que aplica `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` y `Referrer-Policy: strict-origin-when-cross-origin` a todas las rutas (`source: "/(.*)"`), tal como lo describe el checklist.
 - Configuración manual en el panel de Supabase Auth (Authentication → políticas de contraseña / rate limits), documentada como pasos explícitos del plan: longitud mínima de contraseña de 8 caracteres, protección de contraseñas filtradas (HaveIBeenPwned) activada, límite de registros por IP activado. Se intenta primero vía el MCP de Supabase (si expone alguna vía de Management API para esto); si no, queda como paso manual verificado.
-- Protección de rutas con proxy Next.js: información sobre proxy aquí: 
-https://nextjs.org/docs/app/getting-started/proxy 
-Ejemplo: proxy.ts
-``` ts
-		import { NextResponse } from 'next/server'
-		import type { NextRequest } from 'next/server'
-		 
-		// This function can be marked `async` if using `await` inside
-		export function proxy(request: NextRequest) {
-		  return NextResponse.redirect(new URL('/home', request.url))
-		}
-		 
-		// Alternatively, you can use a default export:
-		// export default function proxy(request: NextRequest) { ... }
-		 
-		export const config = {
-		  matcher: '/about/:path*',
-		}
+- Protección de rutas con proxy Next.js: información sobre proxy aquí:
+  https://nextjs.org/docs/app/getting-started/proxy
+  Ejemplo: proxy.ts
+
+```ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+// This function can be marked `async` if using `await` inside
+export function proxy(request: NextRequest) {
+  return NextResponse.redirect(new URL("/home", request.url));
+}
+
+// Alternatively, you can use a default export:
+// export default function proxy(request: NextRequest) { ... }
+
+export const config = {
+  matcher: "/about/:path*",
+};
 ```
+
 - `npm run lint` y `npm run build` pasan sin errores.
 - `get_advisors` (categoría seguridad) ya no reporta el WARN `rls_policy_always_true` sobre `public.scores` al cerrar la spec.
 
@@ -136,10 +138,10 @@ Convenciones:
 - [ ] Las filas semilla de `scores` (SPEC 06, `user_id = NULL`) siguen apareciendo en el leaderboard de `/salon` sin errores.
 - [ ] `next.config.ts` aplica `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` y `Referrer-Policy: strict-origin-when-cross-origin` a todas las rutas (verificable en la pestaña Network del navegador).
 - [ ] Registrar una cuenta nueva con una contraseña de menos de 8 caracteres es rechazado por Supabase Auth con un error visible en `/entrar`.
-- [ ] Registrar una cuenta nueva con una contraseña filtrada conocida (por ejemplo `Password123`) es rechazado por la protección de contraseñas filtradas.
+- [ ] ⏸️ **Diferido.** Registrar una cuenta nueva con una contraseña filtrada conocida (por ejemplo `Password123`) es rechazado por la protección de contraseñas filtradas. — "Leaked password protection" es una función de Supabase Auth que requiere un plan de pago; el proyecto sigue en el plan gratuito al cerrar esta spec. Se activará manualmente en el panel cuando el proyecto pase a producción, y este criterio se marcará entonces.
 - [ ] El panel de Supabase Auth muestra el límite de registros por IP activado.
 - [ ] `get_advisors` ya no reporta el WARN `rls_policy_always_true` sobre `public.scores`.
-- [ ] `get_advisors` ya no reporta el WARN `auth_leaked_password_protection`.
+- [ ] ⏸️ **Diferido.** `get_advisors` ya no reporta el WARN `auth_leaked_password_protection`. — Consecuencia directa del punto anterior: el advisor seguirá marcando este WARN mientras la protección de contraseñas filtradas siga desactivada por el límite del plan gratuito.
 - [ ] Ninguna de las 8 puntuaciones de la migración semilla de SPEC 06 se pierde ni cambia de valor al aplicar esta migración.
 
 ---
