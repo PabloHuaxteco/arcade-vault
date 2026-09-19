@@ -42,6 +42,24 @@ Copia también estas dos variables de `.env.example` a `.env.local`:
 
 Con las dos puestas, la ruta temporal `/debug/supabase` muestra `CONECTADO`.
 
+### Dev vs producción
+
+El proyecto usa **dos instancias de Supabase separadas**, una por entorno.
+En local, `.env.local` siempre apunta al proyecto de **desarrollo** — es el
+único al que Claude Code tiene acceso, vía el servidor MCP `supabase`
+declarado en `.mcp.json`. El proyecto de **producción** no está conectado a
+ningún agente ni MCP: sus credenciales solo viven en el hosting (por
+ejemplo, las variables de entorno del scope _Production_ en Vercel) y,
+opcionalmente, en un `.env.production.local` local (no versionado) para
+poder probar un build de producción en tu máquina — ver
+`.env.production.local.example`. Los _Preview deployments_ del hosting se
+quedan apuntando a desarrollo.
+
+El esquema, las políticas RLS y el catálogo (`games`) están versionados en
+`supabase/migrations/`. El runbook para aplicarlos a producción, junto con
+el checklist manual de Auth/SMTP/backups que no se puede migrar por SQL,
+está en `supabase/RUNBOOK-produccion.md`.
+
 ## Commands
 
 - `npm run dev` — start the dev server (also re-adds the agent-rules block to `AGENTS.md`)

@@ -1,0 +1,8 @@
+# Configuración mínima del proyecto Supabase (Arcade Vault) para poder usar
+# la Supabase CLI: `npx supabase link --project-ref <ref>` y
+# `npx supabase db push` contra las migraciones en `supabase/migrations/`.
+#
+# No contiene secretos: la CLI pide el project-ref y el access token en el
+# momento del `link`/`login`, y no se guardan en este archivo ni en el repo.
+
+project_id = "arcade-vault"
